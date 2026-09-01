@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { loadData, saveData } from './api.js'
 import {
   toN, localDateStr, todayStr, monthStr, localNowISO, bool, phoneMatch,
-  cleanDate, fmtDate, cleanTime, fmtTime, fmtPeso, MAX_PAX, RESERVA_HORAS,
+  cleanDate, fmtDate, fmtTime, fmtPeso, MAX_PAX,
   CATEGORIAS_GASTO, totalPagado, totalRestante, pagoEstadoDe, dayBooked,
   estadoOpEfectivo, enrichReservas, buildMonthBooked, monthCells, nextReservaId,
 } from './helpers.js'
@@ -63,6 +63,12 @@ const BIZ_SUBTITLE = import.meta.env.VITE_BIZ_SUBTITLE || 'Reservas y operación
 const BIZ_EMOJI    = import.meta.env.VITE_BIZ_EMOJI    || '🚤'
 const BIZ_LOGO     = import.meta.env.VITE_BIZ_LOGO     || ''
 
+// Horario fijo del recorrido (no se pregunta al cliente)
+const HORA_SALIDA  = '09:00'
+const HORA_LLEGADA = '17:00'
+// Hora límite para aceptar reservas el día de hoy (después de las 9 ya no se puede)
+const HORA_CORTE_HOY = 9
+
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 const capFirst = s => { const t = String(s || '').trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1) : t }
 const capWords = s => String(s || '').trim().replace(/\b\w/g, c => c.toUpperCase())
@@ -82,18 +88,19 @@ const buildReservaMessage = (r, puntoEncuentro) => {
   const PEOPLE = '\uD83D\uDC65'
   const CARD = '\uD83D\uDCB3'
   const PIN = '\uD83D\uDCCD'
+  const pe = puntoEncuentro || r.puntoEncuentro || ''
   const lines = [
     '¡Hola ' + r.clientName + '! ' + WAVE + ' Tu reserva en el pontón quedó creada:',
     '',
     CHECK + ' *Reserva:* ' + r.id,
     CAL + ' *Fecha:* ' + fmtDate(r.fecha),
-    CLOCK + ' *Hora:* ' + fmtTime(r.hora),
+    CLOCK + ' *Salida:* ' + fmtTime(HORA_SALIDA) + ' — *Regreso:* ' + fmtTime(HORA_LLEGADA),
     PEOPLE + ' *Personas:* ' + r.personas,
     CARD + ' *Valor:* ' + fmtPeso(r.valor),
     CARD + ' *Abono:* ' + fmtPeso(r.totalPagado || 0),
     CARD + ' *Resta:* ' + fmtPeso(r.totalRestante || 0),
   ]
-  if (puntoEncuentro) lines.push(PIN + ' *Punto de encuentro:* ' + puntoEncuentro)
+  if (pe) lines.push(PIN + ' *Punto de encuentro:* ' + pe)
   lines.push('', '¡Te esperamos! ' + WAVE)
   return lines.join('\n')
 }
@@ -222,7 +229,7 @@ export default function App() {
   const p = {
     config, setConfig, SCfg,
     clients, reservas, payments, expenses, enriched,
-    SC, SR, SP, SE, sync, deleteReserva, setTab, confirm, infoModal, tabExtra,
+    SC, SR, SP, SE, sync, deleteReserva, setTab, confirm, infoModal, setModal, tabExtra,
     resetAll, themeMode, themePalette, setThemeMode, setThemePalette,
     tick,
   }
@@ -235,6 +242,7 @@ export default function App() {
       <GS />
       {modal?.type === 'confirm' && <Modal msg={modal.msg} onOk={() => { modal.onOk(); setModal(null) }} onCancel={() => setModal(null)} />}
       {modal?.type === 'info'    && <Modal msg={modal.msg} onOk={() => setModal(null)} okLabel="Entendido" cancelLabel={null} />}
+      {modal?.type === 'custom'  && <Modal onOk={() => { modal.onOk && modal.onOk(); setModal(null) }} onCancel={modal.onCancel ? () => { modal.onCancel(); setModal(null) } : null} okLabel={modal.okLabel || 'Aceptar'} cancelLabel={modal.cancelLabel}>{modal.body}</Modal>}
 
       <header style={{ background: 'var(--primary)', padding: '13px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,0,0,0.18)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -297,11 +305,13 @@ export default function App() {
 ══════════════════════════════════════════════════════════════ */
 function Cent({ children }) { return <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', textAlign: 'center', padding: 20 }}>{children}</div> }
 
-function Modal({ msg, onOk, onCancel, okLabel = 'Aceptar', cancelLabel = 'Cancelar' }) {
+function Modal({ msg, onOk, onCancel, okLabel = 'Aceptar', cancelLabel = 'Cancelar', children }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: 'var(--card)', borderRadius: 14, padding: 20, maxWidth: 360, width: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.25)' }}>
-        <div style={{ fontSize: 15, marginBottom: 16, lineHeight: 1.4 }}>{msg}</div>
+      <div style={{ background: 'var(--card)', borderRadius: 14, padding: 20, maxWidth: 380, width: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.25)' }}>
+        {children
+          ? <div style={{ marginBottom: 16, lineHeight: 1.4 }}>{children}</div>
+          : <div style={{ fontSize: 15, marginBottom: 16, lineHeight: 1.4 }}>{msg}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           {cancelLabel && <button onClick={onCancel} className="btn-sec">{cancelLabel}</button>}
           <button onClick={onOk} className="btn-pri">{okLabel}</button>
@@ -466,6 +476,7 @@ function CalendarView({ enriched, setTab }) {
   const cells = useMemo(() => monthCells(y, m), [y, m])
   const booked = useMemo(() => buildMonthBooked(y, m, enriched), [y, m, enriched])
   const todayD = todayStr()
+  const pastCutoff = today.getHours() >= HORA_CORTE_HOY
 
   const monthName = new Date(y, m - 1, 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
 
@@ -488,13 +499,15 @@ function CalendarView({ enriched, setTab }) {
             if (!d) return <div key={i} />
             const r = booked[d]
             const isPast = d < todayD
+            const isTodayBlocked = d === todayD && pastCutoff
             const isToday = d === todayD
-            const bg = r ? 'var(--red-bg)' : isPast ? 'var(--gray-bg)' : 'var(--green-bg)'
-            const fg = r ? 'var(--red)' : isPast ? 'var(--t2)' : 'var(--green)'
+            const blocked = isPast || isTodayBlocked
+            const bg = r ? 'var(--red-bg)' : blocked ? 'var(--gray-bg)' : 'var(--green-bg)'
+            const fg = r ? 'var(--red)' : blocked ? 'var(--t2)' : 'var(--green)'
             const day = Number(d.slice(8))
             return (
-              <button key={i} disabled={isPast && !r} onClick={() => r ? setTab('edit-reserva', r.id) : setTab('new-reserva', d)}
-                style={{ aspectRatio: '1', background: bg, color: fg, border: isToday ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: r || !isPast ? 'pointer' : 'default', padding: 0, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button key={i} disabled={blocked && !r} onClick={() => r ? setTab('edit-reserva', r.id) : setTab('new-reserva', d)}
+                style={{ aspectRatio: '1', background: bg, color: fg, border: isToday ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: r || !blocked ? 'pointer' : 'default', padding: 0, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {day}
               </button>
             )
@@ -508,7 +521,9 @@ function CalendarView({ enriched, setTab }) {
         <span><span style={{ display: 'inline-block', width: 12, height: 12, background: 'var(--gray-bg)', borderRadius: 3, verticalAlign: 'middle', marginRight: 5 }} />Pasado</span>
       </div>
 
-      <button className="btn-pri" style={{ width: '100%', marginTop: 14, padding: 14 }} onClick={() => setTab('new-reserva', todayStr())}>+ Nueva reserva</button>
+      <button className="btn-pri" style={{ width: '100%', marginTop: 14, padding: 14 }} onClick={() => setTab('new-reserva', todayStr())} disabled={pastCutoff}>
+        {pastCutoff ? 'Ya pasaron las ' + HORA_CORTE_HOY + ':00 — no se puede reservar hoy' : '+ Nueva reserva'}
+      </button>
     </div>
   )
 }
@@ -516,32 +531,30 @@ function CalendarView({ enriched, setTab }) {
 /* ══════════════════════════════════════════════════════════════
    NUEVA RESERVA
 ══════════════════════════════════════════════════════════════ */
-function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, infoModal }) {
-  const fechaInicial = arguments[0]?.tabExtra || todayStr()
+function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, infoModal, tabExtra }) {
+  const fechaInicial = (tabExtra && /^\d{4}-\d{2}-\d{2}$/.test(tabExtra)) ? tabExtra : todayStr()
   const [fecha,   setFecha]   = useState(fechaInicial)
-  const [hora,    setHora]    = useState('09:00')
   const [nombre,  setNombre]  = useState('')
   const [celular, setCelular] = useState('')
   const [personas,setPersonas]= useState(2)
   const [valor,   setValor]   = useState('')
   const [abono,   setAbono]   = useState('')
-  const [servicio,setServicio]= useState('')
-  const [capitan, setCapitan] = useState('')
-  const [pe,      setPe]      = useState((config && config.puntoEncuentro) || '')
 
-  useEffect(() => { setPe((config && config.puntoEncuentro) || '') }, [config.puntoEncuentro])
-
-  // Si llega una fecha preseleccionada, autocompletar al cambiar
-  useEffect(() => { if (arguments[0]?.tabExtra) setFecha(arguments[0].tabExtra) }, [arguments[0]?.tabExtra])
+  const puntoEncuentro = (config && config.puntoEncuentro) || ''
 
   const dayBusy = dayBooked(reservas, fecha)
   const overPax = toN(personas) < 1 || toN(personas) > MAX_PAX
   const restVal = toN(valor) - toN(abono)
+  // No permitir reservar para hoy si ya pasaron las 9:00 a.m.
+  const now = new Date()
+  const isToday = fecha === todayStr()
+  const pastCutoff = isToday && now.getHours() >= HORA_CORTE_HOY
+  const canSubmit = !dayBusy && !overPax && !pastCutoff
 
   const submit = async () => {
     if (dayBusy) { infoModal('El día ' + fmtDate(fecha) + ' ya está reservado.'); return }
+    if (pastCutoff) { infoModal('Ya pasaron las ' + HORA_CORTE_HOY + ':00 a.m. No se puede reservar para hoy.'); return }
     if (!nombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
-    if (!cleanTime(hora)) { infoModal('Hora inválida.'); return }
     if (overPax) { infoModal('La cantidad de personas debe estar entre 1 y ' + MAX_PAX + '.'); return }
     if (toN(valor) <= 0) { infoModal('Indica un valor de reserva.'); return }
 
@@ -561,19 +574,19 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
     const newId = nextReservaId(reservas)
     const newReserva = {
       id: newId,
-      fecha, hora,
+      fecha, hora: HORA_SALIDA,
       clientId: matched ? matched.id : '',
       clientName: capWords(nombre),
       clientPhone: phone,
       personas: toN(personas),
       valor: toN(valor),
       estadoOp: 'PENDIENTE',
-      servicio: capFirst(servicio),
-      capitan: capWords(capitan),
+      servicio: '',
+      capitan: '',
       observaciones: '',
       documentos: '',
       necesidades: '',
-      puntoEncuentro: pe,
+      puntoEncuentro,
       calendarEventId: '',
       fechaFinalizacion: '',
       createdAt: localNowISO(),
@@ -592,9 +605,9 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
       }
     }).catch(() => {})
 
-    // WhatsApp al cliente
+    // WhatsApp al cliente (con horario 9–5 y punto de encuentro)
     const enrichedPreview = { ...newReserva, totalPagado: toN(abono), totalRestante: restVal }
-    openWA(phone, buildReservaMessage(enrichedPreview, pe))
+    openWA(phone, buildReservaMessage(enrichedPreview, puntoEncuentro))
 
     setTab('reservas')
   }
@@ -604,23 +617,22 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
       <button onClick={() => setTab('calendar')} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
       <h1 style={{ fontSize: 22, margin: '0 0 14px', fontFamily: 'Georgia,serif' }}>Nueva reserva</h1>
 
+      <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
+        <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 4 }}>Horario del recorrido</div>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>Salida {fmtTime(HORA_SALIDA)} → Regreso {fmtTime(HORA_LLEGADA)}</div>
+        {puntoEncuentro && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 4 }}>📍 {puntoEncuentro}</div>}
+      </div>
+
       <div className="card" style={{ marginBottom: 12 }}>
         <label className="lbl">Fecha</label>
         <input type="date" className="inp" value={fecha} min={todayStr()} onChange={e => setFecha(e.target.value)} />
         {dayBusy && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>⚠ Este día ya está reservado</div>}
+        {pastCutoff && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>⚠ Ya son más de las {HORA_CORTE_HOY}:00 a.m. — no se puede reservar para hoy</div>}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-        <div className="card">
-          <label className="lbl">Hora de inicio</label>
-          <select className="inp" value={hora} onChange={e => setHora(e.target.value)}>
-            {RESERVA_HORAS.map(h => <option key={h} value={h}>{fmtTime(h)}</option>)}
-          </select>
-        </div>
-        <div className="card">
-          <label className="lbl">Personas (máx {MAX_PAX})</label>
-          <input type="number" min="1" max={MAX_PAX} className="inp" value={personas} onChange={e => setPersonas(e.target.value)} />
-        </div>
+      <div className="card" style={{ marginBottom: 12 }}>
+        <label className="lbl">Personas (máx {MAX_PAX})</label>
+        <input type="number" min="1" max={MAX_PAX} className="inp" value={personas} onChange={e => setPersonas(e.target.value)} />
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
@@ -640,22 +652,6 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 12 }}>
-        <label className="lbl">Punto de encuentro</label>
-        <input className="inp" placeholder="Muelle, dirección, referencia…" value={pe} onChange={e => setPe(e.target.value)} />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-        <div className="card">
-          <label className="lbl">Servicio</label>
-          <input className="inp" placeholder="Paseo, evento, etc." value={servicio} onChange={e => setServicio(e.target.value)} />
-        </div>
-        <div className="card">
-          <label className="lbl">Capitán</label>
-          <input className="inp" value={capitan} onChange={e => setCapitan(e.target.value)} />
-        </div>
-      </div>
-
       {toN(valor) > 0 && (
         <div className="card" style={{ marginBottom: 14, background: 'var(--primary-l)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span>Valor</span><b>{fmtPeso(valor)}</b></div>
@@ -664,7 +660,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
         </div>
       )}
 
-      <button className="btn-pri" style={{ width: '100%', padding: 14, fontSize: 15 }} onClick={submit} disabled={dayBusy || overPax}>Crear reserva y enviar WhatsApp</button>
+      <button className="btn-pri" style={{ width: '100%', padding: 14, fontSize: 15 }} onClick={submit} disabled={!canSubmit}>Crear reserva y enviar WhatsApp</button>
     </div>
   )
 }
@@ -672,33 +668,28 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
 /* ══════════════════════════════════════════════════════════════
    EDITAR RESERVA (ficha de operación)
 ══════════════════════════════════════════════════════════════ */
-function EditReserva({ enriched, reservas, payments, expenses, config, SR, SP, SE, deleteReserva, setTab, confirm, infoModal, tabExtra }) {
+function EditReserva({ enriched, reservas, payments, expenses, config, SR, deleteReserva, setTab, confirm, infoModal, tabExtra }) {
   const r = enriched.find(x => x.id === tabExtra)
-  const [observaciones, setObs] = useState(r?.observaciones || '')
-  const [documentos,    setDoc] = useState(r?.documentos || '')
-  const [necesidades,   setNec] = useState(r?.necesidades || '')
-  const [capitan,       setCap] = useState(r?.capitan || '')
-  const [servicio,      setSer] = useState(r?.servicio || '')
-  const [pe,            setPe]  = useState(r?.puntoEncuentro || (config && config.puntoEncuentro) || '')
+  const [personas, setPersonas] = useState(r?.personas || 1)
+  const [valor,    setValor]    = useState(String(r?.valor || 0))
 
   useEffect(() => {
     if (!r) return
-    setObs(r.observaciones || '')
-    setDoc(r.documentos || '')
-    setNec(r.necesidades || '')
-    setCap(r.capitan || '')
-    setSer(r.servicio || '')
-    setPe(r.puntoEncuentro || (config && config.puntoEncuentro) || '')
+    setPersonas(r.personas || 1)
+    setValor(String(r.valor || 0))
   }, [r && r.id])
 
   if (!r) return <div className="card">Reserva no encontrada.</div>
 
   const locked = r.estadoOp === 'EN_CURSO' || r.estadoOp === 'FINALIZADA' || r.estadoOp === 'CANCELADA'
+  const overPax = toN(personas) < 1 || toN(personas) > MAX_PAX
   const pagosReserva = (Array.isArray(payments) ? payments : []).filter(p => String(p.reservaId) === String(r.id))
   const gastosReserva = (Array.isArray(expenses) ? expenses : []).filter(x => String(x.reservaId) === String(r.id))
+  const pe = r.puntoEncuentro || (config && config.puntoEncuentro) || ''
 
   const save = async () => {
-    const updated = { ...r, observaciones, documentos, necesidades, capitan, servicio, puntoEncuentro: pe }
+    if (overPax) { infoModal('La cantidad de personas debe estar entre 1 y ' + MAX_PAX + '.'); return }
+    const updated = { ...r, personas: toN(personas), valor: toN(valor) }
     delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
     const next = reservas.map(x => x.id === r.id ? updated : x)
     await SR(next)
@@ -706,7 +697,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, SR, SP, S
     infoModal('Cambios guardados.')
   }
 
-  const reWA = () => openWA(r.clientPhone, buildReservaMessage(r, pe))
+  const reWA = () => openWA(r.clientPhone, buildReservaMessage({ ...r, totalPagado: r.totalPagado, totalRestante: r.totalRestante }, pe))
 
   const cancelar = () => {
     confirm('¿Cancelar la reserva ' + r.id + '? El día se liberará.', async () => {
@@ -727,41 +718,40 @@ function EditReserva({ enriched, reservas, payments, expenses, config, SR, SP, S
     <div>
       <button onClick={() => setTab('reservas')} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
       <h1 style={{ fontSize: 20, margin: '0 0 6px', fontFamily: 'Georgia,serif' }}>{r.id}</h1>
-      <p style={{ color: 'var(--t2)', margin: '0 0 12px', fontSize: 14 }}>{r.clientName} · {fmtDate(r.fecha)} · {fmtTime(r.hora)}</p>
+      <p style={{ color: 'var(--t2)', margin: '0 0 12px', fontSize: 14 }}>{r.clientName} · {fmtDate(r.fecha)}</p>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
         <OpBadge estado={r.estadoOp} />
         <PagoBadge estado={r.pagoEstado} />
       </div>
 
+      <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
+        <div style={{ fontSize: 13, color: 'var(--t2)' }}>Horario</div>
+        <div style={{ fontSize: 15, fontWeight: 700 }}>Salida {fmtTime(HORA_SALIDA)} → Regreso {fmtTime(HORA_LLEGADA)}</div>
+        {pe && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 4 }}>📍 {pe}</div>}
+      </div>
+
       <div className="card" style={{ marginBottom: 12 }}>
+        <Row label="Celular"  val={r.clientPhone || '—'} />
         <Row label="Personas" val={r.personas} />
         <Row label="Valor"    val={fmtPeso(r.valor)} />
         <Row label="Pagado"   val={fmtPeso(r.totalPagado)} />
         <Row label="Resta"    val={fmtPeso(r.totalRestante)} bold />
-        <Row label="Celular"  val={r.clientPhone || '—'} />
       </div>
 
-      <div className="card" style={{ marginBottom: 12 }}>
-        <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Operación</h3>
-        <label className="lbl">Servicio</label>
-        <input className="inp" disabled={locked} value={servicio} onChange={e => setSer(e.target.value)} style={{ marginBottom: 8 }} />
-        <label className="lbl">Capitán</label>
-        <input className="inp" disabled={locked} value={capitan} onChange={e => setCap(e.target.value)} style={{ marginBottom: 8 }} />
-        <label className="lbl">Punto de encuentro</label>
-        <input className="inp" disabled={locked} value={pe} onChange={e => setPe(e.target.value)} style={{ marginBottom: 8 }} />
-        <label className="lbl">Observaciones</label>
-        <textarea className="inp" disabled={locked} value={observaciones} onChange={e => setObs(e.target.value)} style={{ marginBottom: 8 }} />
-        <label className="lbl">Documentos / pasajeros</label>
-        <textarea className="inp" disabled={locked} value={documentos} onChange={e => setDoc(e.target.value)} style={{ marginBottom: 8 }} />
-        <label className="lbl">Necesidades especiales</label>
-        <textarea className="inp" disabled={locked} value={necesidades} onChange={e => setNec(e.target.value)} />
-        {locked && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 8 }}>🔒 Reserva {r.estadoOp.toLowerCase()} — no editable</div>}
-      </div>
+      {!locked && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Editar</h3>
+          <label className="lbl">Personas (máx {MAX_PAX})</label>
+          <input type="number" min="1" max={MAX_PAX} className="inp" value={personas} onChange={e => setPersonas(e.target.value)} style={{ marginBottom: 8 }} />
+          <label className="lbl">Valor total</label>
+          <input type="number" className="inp" value={valor} onChange={e => setValor(e.target.value)} />
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <button className="btn-sec" style={{ flex: 1 }} onClick={reWA}>📱 Reenviar WhatsApp</button>
-        {!locked && <button className="btn-pri" style={{ flex: 1 }} onClick={save}>Guardar</button>}
+        {!locked && <button className="btn-pri" style={{ flex: 1 }} onClick={save} disabled={overPax}>Guardar</button>}
       </div>
 
       {pagosReserva.length > 0 && (
@@ -818,7 +808,7 @@ function Row({ label, val, bold }) {
 /* ══════════════════════════════════════════════════════════════
    REGISTRAR ABONO / PAGO
 ══════════════════════════════════════════════════════════════ */
-function RegistrarPago({ enriched, payments, SP, setTab, infoModal, tabExtra, SR }) {
+function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, tabExtra }) {
   const r = enriched.find(x => x.id === tabExtra)
   const [monto, setMonto] = useState('')
   const [fecha, setFecha] = useState(todayStr())
@@ -832,8 +822,62 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, tabExtra, SR
     if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
     const newP = { id: uid(), reservaId: r.id, fecha, monto: m, metodo, nota }
     await SP([...payments, newP])
-    infoModal('Abono registrado.')
-    setTab('edit-reserva', r.id)
+
+    const nuevoPagado = r.totalPagado + m
+    const nuevoRestante = Math.max(0, r.valor - nuevoPagado)
+    const completado = nuevoPagado >= r.valor
+    const valorFmt = fmtPeso(r.valor)
+    const pagadoFmt = fmtPeso(nuevoPagado)
+    const restanteFmt = fmtPeso(nuevoRestante)
+    const fechaFmt = fmtDate(r.fecha)
+
+    setModal({
+      type: 'custom',
+      okLabel: 'Entendido',
+      cancelLabel: null,
+      body: (
+        <div>
+          {completado ? (
+            <>
+              <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>✅</div>
+              <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10, color: 'var(--green)' }}>
+                ¡Pago completo!
+              </div>
+              <p style={{ margin: '0 0 10px' }}>
+                Se registró un abono de <b style={{ color: 'var(--green)' }}>+{fmtPeso(m)}</b> a la reserva <b>{r.id}</b> de <b>{r.clientName}</b>.
+              </p>
+              <div className="card" style={{ background: 'var(--green-bg)', borderColor: 'var(--green)', marginBottom: 10 }}>
+                <Row label="Valor total" val={valorFmt} />
+                <Row label="Pagado" val={'+' + pagadoFmt} />
+                <Row label="Resta" val={'$0'} bold />
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--t2)' }}>
+                La reserva del {fechaFmt} ya está <b>pagada en su totalidad</b>. ¡Buen trabajo! 🎉
+              </p>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>💳</div>
+              <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10, color: 'var(--green)' }}>
+                ¡Abono registrado!
+              </div>
+              <p style={{ margin: '0 0 10px' }}>
+                Se registró un abono de <b style={{ color: 'var(--green)' }}>+{fmtPeso(m)}</b> a la reserva <b>{r.id}</b> de <b>{r.clientName}</b>.
+              </p>
+              <div className="card" style={{ background: 'var(--primary-l)', borderColor: 'var(--primary)', marginBottom: 10 }}>
+                <Row label="Valor total" val={valorFmt} />
+                <Row label="Pagado"     val={'+' + pagadoFmt} />
+                <Row label="Resta"      val={restanteFmt} bold />
+              </div>
+              <div style={{ background: 'var(--orange-bg)', border: '1px solid var(--orange)', borderRadius: 10, padding: 10, fontSize: 13, color: 'var(--orange)' }}>
+                ⚠️ <b>Importante:</b> la reserva del {fechaFmt} debe estar <b>totalmente pagada antes de iniciar el recorrido</b>. Asegúrate de cobrar el saldo restante ({restanteFmt}) antes de la salida.
+              </div>
+            </>
+          )}
+        </div>
+      ),
+      onOk: () => setTab('edit-reserva', r.id),
+    })
   }
 
   return (
@@ -1055,23 +1099,20 @@ function ClientHistory({ clients, enriched, setTab, tabExtra }) {
 /* ══════════════════════════════════════════════════════════════
    FINANZAS
 ══════════════════════════════════════════════════════════════ */
-function FinanzasTab({ config, payments, expenses, enriched, setTab, confirm, infoModal }) {
+function FinanzasTab({ config, payments, expenses, enriched, setTab }) {
   const totalIng = (Array.isArray(payments) ? payments : []).reduce((s, p) => s + toN(p.monto), 0)
   const totalGas = (Array.isArray(expenses) ? expenses : []).reduce((s, e) => s + toN(e.monto), 0)
   const saldo    = toN(config.saldoInicial) + totalIng - totalGas
 
   const [mes, setMes] = useState(monthStr())
-  const ingMes = (Array.isArray(payments) ? payments : []).filter(p => monthStr(cleanDate(p.fecha) + 'T12:00:00') === mes).reduce((s, p) => s + toN(p.monto), 0)
-  const gasMes = (Array.isArray(expenses) ? expenses : []).filter(e => monthStr(cleanDate(e.fecha) + 'T12:00:00') === mes).reduce((s, e) => s + toN(e.monto), 0)
+  const inMonth = f => {
+    const d = cleanDate(f)
+    if (!d) return false
+    return monthStr(new Date(d + 'T12:00:00')) === mes
+  }
+  const ingMes = (Array.isArray(payments) ? payments : []).filter(p => inMonth(p.fecha)).reduce((s, p) => s + toN(p.monto), 0)
+  const gasMes = (Array.isArray(expenses) ? expenses : []).filter(e => inMonth(e.fecha)).reduce((s, e) => s + toN(e.monto), 0)
 
-  const delPago = p => confirm('¿Eliminar este pago?', () => {/* no setter directo aquí; se hace en SE */})
-  // Acceso a setter payments
-  return <FinanzasView config={config} payments={payments} expenses={expenses} enriched={enriched} setTab={setTab} confirm={confirm} infoModal={infoModal} mes={mes} setMes={setMes} totalIng={totalIng} totalGas={totalGas} saldo={saldo} ingMes={ingMes} gasMes={gasMes} />
-}
-
-function FinanzasView({ config, payments, expenses, enriched, setTab, confirm, infoModal, mes, setMes, totalIng, totalGas, saldo, ingMes, gasMes }) {
-  // Para eliminar necesitamos SP/SE — los recibimos indirectamente vía enriched/clients:
-  // En esta versión Finanzas solo lista; eliminación se hace en EditReserva.
   const ingList = (Array.isArray(payments) ? payments : []).slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
   const gasList = (Array.isArray(expenses) ? expenses : []).slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
 
