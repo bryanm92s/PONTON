@@ -726,7 +726,7 @@ function CalendarView({ enriched, setTab }) {
       <h1 style={{ fontSize: 24, margin: '0 0 4px', fontFamily: 'Georgia,serif', textTransform: 'capitalize', letterSpacing: '.01em' }}>Calendario</h1>
       <p style={{ color: 'var(--t2)', margin: '0 0 18px', fontSize: 13.5 }}>Toca un día verde para reservar</p>
 
-      <div className="card" style={{ padding: 14, maxWidth: 420, margin: '0 auto' }}>
+      <div className="card" style={{ padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <button className="btn-sec" style={{ padding: '6px 12px', fontSize: 18, lineHeight: 1 }} onClick={() => { const d = new Date(y, m - 2, 1); setY(d.getFullYear()); setM(d.getMonth() + 1) }}>‹</button>
           <div style={{ fontWeight: 700, textTransform: 'capitalize', fontSize: 16, letterSpacing: '.02em' }}>{monthName}</div>
@@ -1548,7 +1548,7 @@ function ListaFiltrada({ enriched, setTab, goBack, filter, titulo, emoji, emptyM
 
       {list.length > 0 && (
         <div className="card" style={{ padding: '4px 8px 6px' }}>
-          {list.map(r => <ReservaRow key={r.id} r={r} onClick={() => setTab('edit-reserva', r.id)} />)}
+          {list.map(r => <ReservaRow key={r.id} r={r} showDate onClick={() => setTab('edit-reserva', r.id)} />)}
         </div>
       )}
 
