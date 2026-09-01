@@ -9,53 +9,70 @@ import {
 } from './helpers.js'
 
 /* ══════════════════════════════════════════════════════════════
-   THEME — 4 paletas en tonos de mar
+   THEME — Modern Flat + Neumorfismo + Glassmorphism
+   Paletas con gradientes sutiles para usar en header y acentos.
 ══════════════════════════════════════════════════════════════ */
 const PALETTES = [
-  { id:'oceano',   name:'Océano',  emoji:'🌊', primary:'#0F7AAE', pd:'#0A5980', pl:'#E0F1F9', bg:'#F0F7FB', border:'#C8DEEC', t:'#0A1A24', t2:'#5A6A80' },
-  { id:'turquesa', name:'Turquesa',emoji:'🩵', primary:'#1A9A95', pd:'#0F7470', pl:'#E0F4F2', bg:'#F0F9F8', border:'#BFE0DC', t:'#0A1A1A', t2:'#4A7070' },
-  { id:'arena',    name:'Arena',   emoji:'🏖️', primary:'#B58A4A', pd:'#85652F', pl:'#F7EDDF', bg:'#FAF6EE', border:'#E8D8B8', t:'#1E1A0C', t2:'#7A7040' },
-  { id:'coral',    name:'Coral',   emoji:'🪸', primary:'#C45A4A', pd:'#94382B', pl:'#F9E2DD', bg:'#F9F0EC', border:'#E8C4BB', t:'#1E0C0A', t2:'#7A5040' },
+  { id:'oceano',   name:'Océano',   emoji:'🌊', primary:'#0F7AAE', pd:'#0A5980', pl:'#E0F1F9', bg:'#EFF6FB', border:'#D6E7F2', t:'#0A1A24', t2:'#5A6A80',
+    grad:'linear-gradient(135deg,#0F7AAE 0%,#1AA0D8 100%)', gradSoft:'linear-gradient(135deg,#E0F1F9 0%,#C8E4F4 100%)' },
+  { id:'turquesa', name:'Turquesa', emoji:'🩵', primary:'#1A9A95', pd:'#0F7470', pl:'#E0F4F2', bg:'#EFF8F7', border:'#CFE7E5', t:'#0A1A1A', t2:'#4A7070',
+    grad:'linear-gradient(135deg,#1A9A95 0%,#2BC4BE 100%)', gradSoft:'linear-gradient(135deg,#E0F4F2 0%,#B8E5E2 100%)' },
+  { id:'arena',    name:'Arena',    emoji:'🏖️', primary:'#B58A4A', pd:'#85652F', pl:'#F7EDDF', bg:'#F7F1E5', border:'#E5D6B5', t:'#1E1A0C', t2:'#7A7040',
+    grad:'linear-gradient(135deg,#B58A4A 0%,#D4A86A 100%)', gradSoft:'linear-gradient(135deg,#F7EDDF 0%,#EDD9B4 100%)' },
+  { id:'coral',    name:'Coral',    emoji:'🪸', primary:'#C45A4A', pd:'#94382B', pl:'#F9E2DD', bg:'#F7EEEC', border:'#E8C5BF', t:'#1E0C0A', t2:'#7A5040',
+    grad:'linear-gradient(135deg,#C45A4A 0%,#E07A6A 100%)', gradSoft:'linear-gradient(135deg,#F9E2DD 0%,#F0C4BC 100%)' },
 ]
 const applyTheme = (pid, mode) => {
   const p = PALETTES.find(x => x.id === pid) || PALETTES[0]
   const r = document.documentElement.style
+  r.setProperty('--primary',   p.primary)
+  r.setProperty('--primary-d', p.pd)
+  r.setProperty('--primary-l', p.pl)
+  r.setProperty('--grad',      p.grad)
+  r.setProperty('--grad-soft', p.gradSoft)
   if (mode === 'dark') {
-    r.setProperty('--primary',   p.primary)
-    r.setProperty('--primary-d', p.pd)
-    r.setProperty('--primary-l', p.pd + '55')
-    r.setProperty('--bg',        '#0F1417')
-    r.setProperty('--card',      '#1A2024')
-    r.setProperty('--surface',   '#21282D')
-    r.setProperty('--border',    '#2F383E')
+    r.setProperty('--bg',        '#0E1216')
+    r.setProperty('--card',      'rgba(28, 34, 40, 0.72)')
+    r.setProperty('--card-solid','#1C2228')
+    r.setProperty('--surface',   'rgba(38, 45, 52, 0.65)')
+    r.setProperty('--border',    'rgba(255,255,255,0.08)')
     r.setProperty('--t',         '#F0F4F6')
     r.setProperty('--t2',        '#90A0AA')
     r.setProperty('--green',     '#4ABA80')
-    r.setProperty('--green-bg',  '#0E2A1A')
+    r.setProperty('--green-bg',  'rgba(74,186,128,0.14)')
     r.setProperty('--orange',    '#E89A4A')
-    r.setProperty('--orange-bg', '#2A1A0A')
+    r.setProperty('--orange-bg', 'rgba(232,154,74,0.14)')
     r.setProperty('--red',       '#E06060')
-    r.setProperty('--red-bg',    '#2A0E0E')
-    r.setProperty('--gray-bg',   '#252B30')
-    r.setProperty('--input-bg',  '#21282D')
+    r.setProperty('--red-bg',    'rgba(224,96,96,0.14)')
+    r.setProperty('--gray-bg',   'rgba(255,255,255,0.04)')
+    r.setProperty('--input-bg',  'rgba(255,255,255,0.04)')
+    r.setProperty('--shadow',    '0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset')
+    r.setProperty('--shadow-sm', '0 2px 8px rgba(0,0,0,0.30)')
+    r.setProperty('--shadow-inset', 'inset 2px 2px 6px rgba(0,0,0,0.35), inset -2px -2px 6px rgba(255,255,255,0.03)')
+    r.setProperty('--glass',     'rgba(20, 26, 32, 0.72)')
+    r.setProperty('--glass-bd',  'rgba(255,255,255,0.08)')
   } else {
-    r.setProperty('--primary',   p.primary)
-    r.setProperty('--primary-d', p.pd)
-    r.setProperty('--primary-l', p.pl)
     r.setProperty('--bg',        p.bg)
-    r.setProperty('--card',      '#FFFFFF')
-    r.setProperty('--surface',   '#FFFFFF')
-    r.setProperty('--border',    p.border)
+    r.setProperty('--card',      'rgba(255, 255, 255, 0.78)')
+    r.setProperty('--card-solid','#FFFFFF')
+    r.setProperty('--surface',   'rgba(255, 255, 255, 0.65)')
+    r.setProperty('--border',    'rgba(15, 122, 174, 0.10)')
     r.setProperty('--t',         p.t)
     r.setProperty('--t2',        p.t2)
     r.setProperty('--green',     '#2E7D52')
-    r.setProperty('--green-bg',  '#EDF7F0')
+    r.setProperty('--green-bg',  'rgba(46, 125, 82, 0.10)')
     r.setProperty('--orange',    '#C4823A')
-    r.setProperty('--orange-bg', '#FFF4E0')
+    r.setProperty('--orange-bg', 'rgba(196, 130, 58, 0.10)')
     r.setProperty('--red',       '#B03030')
-    r.setProperty('--red-bg',    '#FFF0F0')
-    r.setProperty('--gray-bg',   '#F0F2F4')
-    r.setProperty('--input-bg',  '#FFFFFF')
+    r.setProperty('--red-bg',    'rgba(176, 48, 48, 0.10)')
+    r.setProperty('--gray-bg',   'rgba(0, 0, 0, 0.04)')
+    r.setProperty('--input-bg',  'rgba(255, 255, 255, 0.7)')
+    // Neumorfismo sutil: dos sombras suaves, una clara abajo-izq y una oscura arriba-der
+    r.setProperty('--shadow',    '8px 8px 20px rgba(15, 60, 90, 0.07), -8px -8px 20px rgba(255, 255, 255, 0.85)')
+    r.setProperty('--shadow-sm', '4px 4px 10px rgba(15, 60, 90, 0.06), -4px -4px 10px rgba(255, 255, 255, 0.85)')
+    r.setProperty('--shadow-inset', 'inset 2px 2px 6px rgba(15, 60, 90, 0.07), inset -2px -2px 6px rgba(255, 255, 255, 0.85)')
+    r.setProperty('--glass',     'rgba(255, 255, 255, 0.65)')
+    r.setProperty('--glass-bd',  'rgba(255, 255, 255, 0.45)')
   }
 }
 
@@ -282,24 +299,43 @@ export default function App() {
       {modal?.type === 'info'    && <Modal msg={modal.msg} onOk={() => setModal(null)} okLabel="Entendido" cancelLabel={null} />}
       {modal?.type === 'custom'  && <Modal onOk={() => { const r = modal.onOk && modal.onOk(); if (r !== false) setModal(null) }} onCancel={modal.onCancel ? () => { modal.onCancel(); setModal(null) } : null} okLabel={modal.okLabel || 'Aceptar'} cancelLabel={modal.cancelLabel} danger={modal.danger} okDisabled={modal.okDisabled}>{modal.body}</Modal>}
 
-      <header style={{ background: 'var(--primary)', padding: '13px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,0,0,0.18)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+      <header style={{
+        background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-d) 100%)',
+        padding: '14px 18px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'sticky', top: 0, zIndex: 100,
+        boxShadow: '0 6px 20px rgba(15, 60, 90, 0.18), inset 0 -1px 0 rgba(255,255,255,0.10)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {BIZ_LOGO
-            ? <img src={BIZ_LOGO} alt={BIZ_NAME} style={{ height: 38, width: 'auto', objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.2))' }} />
-            : <div style={{ fontSize: 26 }}>{BIZ_EMOJI}</div>
+            ? <img src={BIZ_LOGO} alt={BIZ_NAME} style={{ height: 40, width: 'auto', objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))' }} />
+            : <div style={{ fontSize: 28, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.15))' }}>{BIZ_EMOJI}</div>
           }
           <div>
-            <div style={{ fontFamily: 'Georgia,serif', fontSize: 15, color: 'white', fontWeight: 700 }}>{BIZ_NAME}</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.78)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>{BIZ_SUBTITLE || BIZ_NAME}</div>
+            <div style={{ fontFamily: 'Georgia,serif', fontSize: 16, color: 'white', fontWeight: 700, letterSpacing: '.01em' }}>{BIZ_NAME}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.78)', letterSpacing: '0.16em', textTransform: 'uppercase', marginTop: 1 }}>{BIZ_SUBTITLE || BIZ_NAME}</div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => refresh(true)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 20, padding: '5px 10px', color: 'white', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>↻</button>
+          <button onClick={() => refresh(true)} style={{
+            background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.18)',
+            borderRadius: 20, padding: '6px 12px', color: 'white', fontSize: 14,
+            cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+          }}>↻</button>
           <SyncBadge status={status} lastSync={lastSync} />
         </div>
       </header>
 
-      <nav style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)', display: 'flex', overflowX: 'auto', padding: '0 2px', position: 'sticky', top: 58, zIndex: 99, scrollbarWidth: 'none' }}>
+      <nav style={{
+        background: 'var(--glass)',
+        backdropFilter: 'blur(16px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+        borderBottom: '1px solid var(--glass-bd)',
+        display: 'flex', overflowX: 'auto', padding: '4px 2px 0',
+        position: 'sticky', top: 70, zIndex: 99, scrollbarWidth: 'none',
+        boxShadow: '0 2px 12px rgba(15, 60, 90, 0.05)',
+      }}>
         {[
           ['dashboard', 'grid',     'Panel'],
           ['calendar',  'cal',      'Calendario'],
@@ -309,14 +345,14 @@ export default function App() {
           ['settings',  'gear',     'Ajustes'],
         ].map(([id, ic, lb]) => (
           <button key={id} onClick={() => { setHistory([]); setTabRaw(id); setTabExtra(null) }} className={`nb${tab === id ? ' act' : ''}`}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 9, paddingBottom: 9, paddingLeft: 12, paddingRight: 12 }}>
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 8, paddingBottom: 8, paddingLeft: 14, paddingRight: 14 }}>
             <NavIcon type={ic} active={tab === id} />
-            <span style={{ fontSize: 10, letterSpacing: '.02em' }}>{lb}</span>
+            <span style={{ fontSize: 10, letterSpacing: '.04em', fontWeight: tab === id ? 700 : 500 }}>{lb}</span>
           </button>
         ))}
       </nav>
 
-      <main style={{ padding: '16px 14px', maxWidth: 720, margin: '0 auto' }}>
+      <main style={{ padding: '20px 14px 32px', maxWidth: 720, margin: '0 auto' }}>
         {status === 'error' && <div className="warn-box">⚠️ Modo sin conexión — {errMsg}</div>}
         {tab === 'dashboard'     && <Dashboard      {...p} />}
         {tab === 'calendar'      && <CalendarView   {...p} />}
@@ -332,7 +368,14 @@ export default function App() {
         {tab === 'client-history' && <ClientHistory  {...p} />}
       </main>
 
-      <footer style={{ textAlign: 'center', padding: '20px 14px 28px', borderTop: '1px solid var(--border)', marginTop: 8, background: 'var(--card)', color: 'var(--t2)', fontSize: 11 }}>
+      <footer style={{
+        textAlign: 'center', padding: '20px 14px 28px', marginTop: 24,
+        background: 'var(--glass)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        borderTop: '1px solid var(--glass-bd)',
+        color: 'var(--t2)', fontSize: 11, letterSpacing: '.04em',
+      }}>
         {BIZ_EMOJI} {BIZ_NAME} · © {new Date().getFullYear()}
       </footer>
     </div>
@@ -346,11 +389,25 @@ function Cent({ children }) { return <div style={{ display: 'flex', minHeight: '
 
 function Modal({ msg, onOk, onCancel, okLabel = 'Aceptar', cancelLabel = 'Cancelar', children, danger, okDisabled }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: 'var(--card)', borderRadius: 14, padding: 20, maxWidth: 380, width: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.25)' }}>
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+      background: 'rgba(15, 25, 35, 0.55)',
+      backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)',
+      animation: 'fadeUp .15s ease both',
+    }} onClick={onCancel || undefined}>
+      <div className="fade-up" onClick={e => e.stopPropagation()} style={{
+        background: 'var(--card)',
+        backdropFilter: 'blur(20px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+        border: '1px solid var(--glass-bd)',
+        borderRadius: 22, padding: 22, maxWidth: 400, width: '100%',
+        boxShadow: '0 20px 60px rgba(15, 30, 45, 0.35), 0 1px 0 rgba(255,255,255,0.5) inset',
+      }}>
         {children
-          ? <div style={{ marginBottom: 16, lineHeight: 1.4 }}>{children}</div>
-          : <div style={{ fontSize: 15, marginBottom: 16, lineHeight: 1.4 }}>{msg}</div>}
+          ? <div style={{ marginBottom: 18, lineHeight: 1.45 }}>{children}</div>
+          : <div style={{ fontSize: 15, marginBottom: 18, lineHeight: 1.45 }}>{msg}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           {cancelLabel && <button onClick={onCancel} className="btn-sec">{cancelLabel}</button>}
           <button onClick={onOk} className={danger ? 'btn-danger' : 'btn-pri'} disabled={okDisabled}>{okLabel}</button>
@@ -384,28 +441,116 @@ function SyncBadge({ status, lastSync }) {
 
 function GS() { return <style>{`
   *{box-sizing:border-box}
-  body{margin:0}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:'DM Sans',system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 0% 0%, var(--grad-soft) 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, var(--grad-soft) 0%, transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+    min-height:100vh;
+    color:var(--t);
+  }
   input,select,textarea,button{font-family:inherit}
-  .nb{background:none;border:none;cursor:pointer;color:var(--t2);border-bottom:2px solid transparent;transition:all .15s}
+
+  /* ── Botones ───────────────────────────────────── */
+  .btn-pri{
+    background:var(--grad);color:white;border:none;
+    padding:11px 18px;border-radius:14px;font-weight:600;cursor:pointer;
+    font-size:14px;letter-spacing:.01em;
+    box-shadow:0 4px 14px rgba(15,122,174,0.25), inset 0 1px 0 rgba(255,255,255,0.20);
+    transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
+  }
+  .btn-pri:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(15,122,174,0.30), inset 0 1px 0 rgba(255,255,255,0.25);filter:brightness(1.04)}
+  .btn-pri:active{transform:translateY(0);box-shadow:0 2px 8px rgba(15,122,174,0.25), inset 0 2px 4px rgba(0,0,0,0.10)}
+  .btn-pri:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none;filter:grayscale(.3)}
+  .btn-sec{
+    background:var(--card-solid);color:var(--t);border:1px solid var(--border);
+    padding:10px 16px;border-radius:14px;font-weight:600;cursor:pointer;font-size:14px;
+    box-shadow:var(--shadow-sm);
+    transition:all .12s ease;
+  }
+  .btn-sec:hover{background:var(--gray-bg);transform:translateY(-1px)}
+  .btn-sec:active{transform:translateY(0);box-shadow:var(--shadow-inset)}
+  .btn-danger{
+    background:linear-gradient(135deg,#D63B3B 0%,#E06060 100%);color:white;border:none;
+    padding:11px 18px;border-radius:14px;font-weight:600;cursor:pointer;font-size:14px;
+    box-shadow:0 4px 14px rgba(214,59,59,0.30), inset 0 1px 0 rgba(255,255,255,0.20);
+    transition:all .12s ease;
+  }
+  .btn-danger:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(214,59,59,0.35), inset 0 1px 0 rgba(255,255,255,0.25);filter:brightness(1.05)}
+  .btn-danger:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+  /* ── Inputs ─────────────────────────────────────── */
+  .inp{
+    width:100%;background:var(--input-bg);
+    border:1px solid var(--border);color:var(--t);
+    padding:11px 14px;border-radius:14px;font-size:14px;outline:none;
+    box-shadow:var(--shadow-inset);
+    transition:all .15s ease;
+  }
+  .inp::placeholder{color:var(--t2);opacity:.7}
+  .inp:focus{
+    border-color:var(--primary);
+    box-shadow:var(--shadow-inset), 0 0 0 3px var(--primary-l);
+    background:var(--card-solid);
+  }
+  textarea.inp{resize:vertical;min-height:80px;line-height:1.45}
+  select.inp{cursor:pointer}
+  .lbl{
+    display:block;font-size:11px;font-weight:700;color:var(--t2);
+    margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase;
+  }
+
+  /* ── Cards (neumorfismo suave) ──────────────────── */
+  .card{
+    background:var(--card);
+    backdrop-filter:blur(14px) saturate(140%);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+    border:1px solid var(--glass-bd);
+    border-radius:20px;padding:16px;
+    box-shadow:var(--shadow);
+    position:relative;
+  }
+  .card-flat{
+    background:var(--card-solid);
+    border:1px solid var(--border);
+    border-radius:16px;padding:14px;
+  }
+
+  /* ── Navbar ─────────────────────────────────────── */
+  .nb{
+    background:none;border:none;cursor:pointer;color:var(--t2);
+    border-bottom:2px solid transparent;transition:all .15s;
+    padding:8px 14px 9px;
+  }
   .nb:hover{color:var(--t)}
   .nb.act{color:var(--primary);border-bottom-color:var(--primary)}
-  .btn-pri{background:var(--primary);color:white;border:none;padding:10px 16px;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px}
-  .btn-pri:hover{background:var(--primary-d)}
-  .btn-pri:disabled{opacity:.5;cursor:not-allowed}
-  .btn-sec{background:var(--gray-bg);color:var(--t);border:none;padding:10px 16px;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px}
-  .btn-sec:hover{background:var(--border)}
-  .btn-danger{background:var(--red);color:white;border:none;padding:10px 16px;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px}
-  .inp{width:100%;background:var(--input-bg);border:1px solid var(--border);color:var(--t);padding:10px 12px;border-radius:10px;font-size:14px;outline:none}
-  .inp:focus{border-color:var(--primary)}
-  textarea.inp{resize:vertical;min-height:70px}
-  .lbl{display:block;font-size:12px;font-weight:600;color:var(--t2);margin-bottom:5px;letter-spacing:.02em}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
-  .warn-box{background:var(--orange-bg);color:var(--orange);padding:12px 14px;border-radius:10px;margin-bottom:12px;font-size:13px}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* ── Avisos ─────────────────────────────────────── */
+  .warn-box{background:var(--orange-bg);color:var(--orange);padding:12px 14px;border-radius:14px;margin-bottom:12px;font-size:13px;border:1px solid rgba(232,154,74,0.25)}
+
+  /* ── Animaciones ────────────────────────────────── */
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.95)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .fade-up{animation:fadeUp .25s ease both}
+
+  /* ── Scrollbar sutil ────────────────────────────── */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  ::-webkit-scrollbar-track{background:transparent}
 `}</style> }
 
 function Badge({ children, bg, fg }) {
-  return <span style={{ background: bg || 'var(--gray-bg)', color: fg || 'var(--t)', padding: '3px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: '.02em', display: 'inline-block' }}>{children}</span>
+  return <span style={{
+    background: bg || 'var(--gray-bg)',
+    color: fg || 'var(--t)',
+    padding: '3px 9px', borderRadius: 8,
+    fontSize: 11, fontWeight: 700, letterSpacing: '.04em',
+    display: 'inline-block',
+    border: '1px solid rgba(0,0,0,0.04)',
+  }}>{children}</span>
 }
 
 function PagoBadge({ estado }) {
@@ -1448,9 +1593,10 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
 /* ══════════════════════════════════════════════════════════════
    AJUSTES
 ══════════════════════════════════════════════════════════════ */
-function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setThemeMode, setThemePalette, setModal }) {
+function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setThemeMode, setThemePalette }) {
   const [saldo,  setSaldo]  = useState(config.saldoInicial || '0')
   const [pe,     setPe]     = useState(config.puntoEncuentro || '')
+  const [showReset, setShowReset] = useState(false)
   const [confirmText, setConfirmText] = useState('')
 
   useEffect(() => {
@@ -1462,47 +1608,13 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
     await SCfg({ saldoInicial: toN(saldo), puntoEncuentro: pe })
   }
 
-  const askReset = () => {
+  const openReset = () => { setConfirmText(''); setShowReset(true) }
+  const closeReset = () => { setShowReset(false); setConfirmText('') }
+  const doReset = async () => {
+    if (confirmText.trim().toUpperCase() !== 'CONFIRMAR') return
+    await resetAll()
+    setShowReset(false)
     setConfirmText('')
-    setModal({
-      type: 'custom',
-      danger: true,
-      okLabel: 'Eliminar todo',
-      cancelLabel: 'Cancelar',
-      body: (
-        <div>
-          <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>⚠️</div>
-          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10, color: 'var(--red)' }}>
-            ¿Borrar TODOS los datos?
-          </div>
-          <p style={{ margin: '0 0 10px' }}>
-            Se eliminarán <b>todas las reservas, clientes, pagos y gastos</b>. Esta acción <b>no se puede deshacer</b>.
-          </p>
-          <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--t2)' }}>
-            Para confirmar, escribe la palabra <b>CONFIRMAR</b> en el campo de abajo:
-          </p>
-          <input
-            className="inp"
-            autoFocus
-            placeholder="Escribe CONFIRMAR"
-            value={confirmText}
-            onChange={e => setConfirmText(e.target.value)}
-          />
-          <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>
-            {confirmText.length === 0
-              ? 'Escribe CONFIRMAR (en mayúsculas) para activar el botón Eliminar.'
-              : (confirmText.trim().toUpperCase() === 'CONFIRMAR'
-                  ? <span style={{ color: 'var(--red)' }}>⚠️ Listo para eliminar. Esta acción es irreversible.</span>
-                  : <span>Lo escrito no coincide. Escribe exactamente CONFIRMAR (en mayúsculas).</span>)}
-          </div>
-        </div>
-      ),
-      onOk: () => {
-        if (confirmText.trim().toUpperCase() !== 'CONFIRMAR') return false
-        resetAll()
-        return true
-      },
-    })
   }
 
   return (
@@ -1540,10 +1652,45 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
         <p style={{ fontSize: 12, color: 'var(--t2)', margin: '0 0 10px' }}>
           Esta acción borra permanentemente todos los datos. Úsala solo si quieres empezar de cero.
         </p>
-        <button className="btn-danger" style={{ width: '100%' }} onClick={askReset}>
+        <button className="btn-danger" style={{ width: '100%' }} onClick={openReset}>
           🗑 Borrar todos los datos
         </button>
       </div>
+
+      {showReset && (
+        <Modal
+          onOk={doReset}
+          onCancel={closeReset}
+          okLabel="Eliminar todo"
+          cancelLabel="Cancelar"
+          danger
+        >
+          <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>⚠️</div>
+          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10, color: 'var(--red)' }}>
+            ¿Borrar TODOS los datos?
+          </div>
+          <p style={{ margin: '0 0 10px' }}>
+            Se eliminarán <b>todas las reservas, clientes, pagos y gastos</b>. Esta acción <b>no se puede deshacer</b>.
+          </p>
+          <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--t2)' }}>
+            Para confirmar, escribe la palabra <b>CONFIRMAR</b> en el campo de abajo:
+          </p>
+          <input
+            className="inp"
+            autoFocus
+            placeholder="Escribe CONFIRMAR"
+            value={confirmText}
+            onChange={e => setConfirmText(e.target.value)}
+          />
+          <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>
+            {confirmText.length === 0
+              ? 'Escribe CONFIRMAR (en mayúsculas) para activar el botón Eliminar.'
+              : (confirmText.trim().toUpperCase() === 'CONFIRMAR'
+                  ? <span style={{ color: 'var(--red)' }}>⚠️ Listo para eliminar. Esta acción es irreversible.</span>
+                  : <span>Lo escrito no coincide. Escribe exactamente CONFIRMAR (en mayúsculas).</span>)}
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
