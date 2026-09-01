@@ -76,7 +76,7 @@ const applyTheme = (pid, mode) => {
   }
 }
 
-const BIZ_NAME     = import.meta.env.VITE_BIZ_NAME     || 'Pontón Reservas'
+const BIZ_NAME     = import.meta.env.VITE_BIZ_NAME     || 'La Luz de Emi'
 const BIZ_SUBTITLE = import.meta.env.VITE_BIZ_SUBTITLE || 'Reservas y operación'
 const BIZ_EMOJI    = import.meta.env.VITE_BIZ_EMOJI    || '🚤'
 const BIZ_LOGO     = import.meta.env.VITE_BIZ_LOGO     || ''
@@ -376,7 +376,13 @@ export default function App() {
         borderTop: '1px solid var(--glass-bd)',
         color: 'var(--t2)', fontSize: 11, letterSpacing: '.04em',
       }}>
-        {BIZ_EMOJI} {BIZ_NAME} · © {new Date().getFullYear()}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <span>{BIZ_EMOJI} La Luz de Emi © {new Date().getFullYear()}</span>
+          <span style={{ opacity: 0.5 }}>|</span>
+          <span>Bryan Morales</span>
+          <span style={{ opacity: 0.5 }}>|</span>
+          <span title="Colombia" aria-label="Colombia" style={{ fontSize: 14, lineHeight: 1 }}>🇨🇴</span>
+        </span>
       </footer>
     </div>
   )
@@ -700,6 +706,14 @@ function CalendarView({ enriched, setTab }) {
     return       { bg: '#D6F0DD', fg: '#1F6B3A', border: '#6FBE8A', dot: '#1F6B3A' }         // disponible
   }
 
+  // Acordeón: listas de reservas por estado para verlas sin tocar el calendario.
+  const grupos = {
+    hoy:       enriched.filter(r => r.fecha === todayD),
+    futuras:   enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA'),
+    pasadas:   enriched.filter(r => r.fecha < todayD || r.estadoOp === 'FINALIZADA' || r.estadoOp === 'CANCELADA')
+      .slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+  }
+
   return (
     <div>
       <h1 style={{ fontSize: 24, margin: '0 0 4px', fontFamily: 'Georgia,serif', textTransform: 'capitalize', letterSpacing: '.01em' }}>Calendario</h1>
@@ -765,6 +779,35 @@ function CalendarView({ enriched, setTab }) {
       <button className="btn-pri" style={{ width: '100%', marginTop: 20, padding: 15, fontSize: 15 }} onClick={() => setTab('new-reserva', todayStr())} disabled={pastCutoff}>
         {pastCutoff ? 'Ya pasaron las ' + HORA_CORTE_HOY + ':00 — no se puede reservar hoy' : '+ Nueva reserva'}
       </button>
+
+      {/* ── Acordeón de reservas ──────────────────────────── */}
+      <div style={{ marginTop: 24 }}>
+        {[
+          ['Hoy',       grupos.hoy,     true],
+          ['Futuras',   grupos.futuras, true],
+          ['Pasadas',   grupos.pasadas, false],
+        ].map(([title, list, open]) => (
+          <details key={title} open={open} className="card" style={{ marginBottom: 10, padding: 0, overflow: 'hidden' }}>
+            <summary style={{
+              fontWeight: 700, cursor: 'pointer',
+              padding: '14px 16px',
+              borderBottom: '1px solid var(--border)',
+              listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span style={{ fontSize: 14, letterSpacing: '.04em' }}>{title}</span>
+              <span style={{
+                fontSize: 12, fontWeight: 700, color: 'var(--t2)',
+                background: 'var(--gray-bg)', padding: '2px 9px', borderRadius: 999,
+              }}>{list.length}</span>
+            </summary>
+            {list.length === 0
+              ? <div style={{ padding: 16, color: 'var(--t2)', fontSize: 13 }}>Sin reservas</div>
+              : <div style={{ padding: '4px 8px 6px' }}>
+                  {list.map(r => <ReservaRow key={r.id} r={r} onClick={() => setTab('edit-reserva', r.id)} />)}
+                </div>}
+          </details>
+        ))}
+      </div>
     </div>
   )
 }
@@ -1019,7 +1062,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, SR, delet
               <b style={{ color: 'var(--green)' }}>+{fmtPeso(p.monto)}</b>
               {!locked && (
                 <>
-                  <button onClick={() => setTab('edit-pago', p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Editar abono">✏️</button>
+                  <button onClick={() => setTab('pago', p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Editar abono">✏️</button>
                   <button onClick={() => confirm('¿Eliminar este abono de ' + fmtPeso(p.monto) + '?', () => deletePago(p.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Eliminar abono">🗑</button>
                 </>
               )}
@@ -1415,6 +1458,10 @@ function ReservasTab({ enriched, setTab }) {
 ══════════════════════════════════════════════════════════════ */
 function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
   const [q, setQ] = useState('')
+  const [showNew, setShowNew] = useState(false)
+  const [nNombre, setNNombre] = useState('')
+  const [nCelular, setNCelular] = useState('')
+
   const list = (Array.isArray(clients) ? clients : [])
     .filter(c => !q || phoneMatch(c.celular, q) || (c.nombre || '').toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
@@ -1427,9 +1474,23 @@ function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
     confirm(msg, () => SC(clients.filter(x => x.id !== c.id)))
   }
 
+  const guardarNuevo = async () => {
+    if (!nNombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
+    const phone = nCelular.replace(/\D/g, '')
+    if (phone && clients.some(c => (c.celular || '').replace(/\D/g, '') === phone)) {
+      infoModal('Ya existe un cliente con ese celular.'); return
+    }
+    const newC = { id: uid(), nombre: capWords(nNombre), celular: phone, createdAt: localNowISO() }
+    await SC([...clients, newC])
+    setNNombre(''); setNCelular(''); setShowNew(false)
+  }
+
   return (
     <div>
-      <h1 style={{ fontSize: 24, margin: '0 0 16px', fontFamily: 'Georgia,serif', letterSpacing: '.01em' }}>Clientes</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <h1 style={{ fontSize: 24, margin: 0, fontFamily: 'Georgia,serif', letterSpacing: '.01em' }}>Clientes</h1>
+        <button className="btn-pri" onClick={() => setShowNew(true)}>+ Nuevo cliente</button>
+      </div>
       <input className="inp" placeholder="🔍 Buscar por nombre o celular" value={q} onChange={e => setQ(e.target.value)} style={{ marginBottom: 12 }} />
       {list.length === 0 && <div className="card" style={{ textAlign: 'center', color: 'var(--t2)' }}>Sin clientes</div>}
       {list.map(c => {
@@ -1448,6 +1509,22 @@ function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
           </div>
         )
       })}
+
+      {showNew && (
+        <Modal
+          onOk={guardarNuevo}
+          onCancel={() => { setShowNew(false); setNNombre(''); setNCelular('') }}
+          okLabel="Crear cliente"
+          cancelLabel="Cancelar"
+        >
+          <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>👤</div>
+          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Nuevo cliente</div>
+          <label className="lbl">Nombre</label>
+          <input className="inp" autoFocus value={nNombre} onChange={e => setNNombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
+          <label className="lbl">Celular (opcional)</label>
+          <input className="inp" value={nCelular} onChange={e => setNCelular(e.target.value)} inputMode="tel" placeholder="3001234567" />
+        </Modal>
+      )}
     </div>
   )
 }
@@ -1548,7 +1625,27 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
 /* ══════════════════════════════════════════════════════════════
    FINANZAS
 ══════════════════════════════════════════════════════════════ */
-function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto, confirm }) {
+function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto, confirm, SP, infoModal }) {
+  const [showNewIng, setShowNewIng] = useState(false)
+  const [ingReservaId, setIngReservaId] = useState('')
+  const [ingMonto, setIngMonto] = useState('')
+  const [ingFecha, setIngFecha] = useState(todayStr())
+  const [ingMetodo, setIngMetodo] = useState('Transferencia')
+  const [ingNota, setIngNota] = useState('')
+
+  const closeIng = () => {
+    setShowNewIng(false); setIngReservaId(''); setIngMonto(''); setIngFecha(todayStr()); setIngMetodo('Transferencia'); setIngNota('')
+  }
+  const guardarIng = async () => {
+    const m = toN(ingMonto)
+    if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
+    if (!ingReservaId) { infoModal('Selecciona la reserva a la que pertenece este ingreso.'); return }
+    const newP = { id: uid(), reservaId: ingReservaId, fecha: ingFecha, monto: m, metodo: ingMetodo, nota: ingNota }
+    await SP([...payments, newP])
+    infoModal('Ingreso registrado.')
+    closeIng()
+  }
+
   const totalIng = (Array.isArray(payments) ? payments : []).reduce((s, p) => s + toN(p.monto), 0)
   const totalGas = (Array.isArray(expenses) ? expenses : []).reduce((s, e) => s + toN(e.monto), 0)
   const saldo    = toN(config.saldoInicial) + totalIng - totalGas
@@ -1567,9 +1664,12 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <h1 style={{ fontSize: 22, margin: 0, fontFamily: 'Georgia,serif' }}>Finanzas</h1>
-        <button className="btn-pri" onClick={() => setTab('nuevo-gasto')}>+ Nuevo gasto</button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
+        <h1 style={{ fontSize: 24, margin: 0, fontFamily: 'Georgia,serif', letterSpacing: '.01em' }}>Finanzas</h1>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn-pri" onClick={() => setShowNewIng(true)}>+ Nuevo ingreso</button>
+          <button className="btn-pri" onClick={() => setTab('nuevo-gasto')}>+ Nuevo gasto</button>
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
@@ -1636,6 +1736,47 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           </div>
         )}
       </details>
+
+      {showNewIng && (
+        <Modal
+          onOk={guardarIng}
+          onCancel={closeIng}
+          okLabel="Registrar ingreso"
+          cancelLabel="Cancelar"
+        >
+          <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>💰</div>
+          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Nuevo ingreso</div>
+          <label className="lbl">Reserva</label>
+          <select className="inp" value={ingReservaId} onChange={e => setIngReservaId(e.target.value)} style={{ marginBottom: 10 }}>
+            <option value="">— Selecciona la reserva —</option>
+            {enriched
+              .slice()
+              .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+              .map(r => <option key={r.id} value={r.id}>{r.id} · {r.clientName} · {fmtDate(r.fecha)}</option>)}
+          </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div>
+              <label className="lbl">Monto</label>
+              <input type="number" min="0" step="any" className="inp" placeholder="0" value={ingMonto} onChange={e => setIngMonto(e.target.value)} autoFocus />
+            </div>
+            <div>
+              <label className="lbl">Fecha</label>
+              <input type="date" className="inp" value={ingFecha} onChange={e => setIngFecha(e.target.value)} />
+            </div>
+          </div>
+          <label className="lbl">Método</label>
+          <select className="inp" value={ingMetodo} onChange={e => setIngMetodo(e.target.value)} style={{ marginBottom: 10 }}>
+            <option>Efectivo</option>
+            <option>Transferencia</option>
+            <option>Nequi</option>
+            <option>Daviplata</option>
+            <option>Bancolombia</option>
+            <option>Otro</option>
+          </select>
+          <label className="lbl">Nota (opcional)</label>
+          <input className="inp" value={ingNota} onChange={e => setIngNota(e.target.value)} placeholder="Detalle del pago…" />
+        </Modal>
+      )}
     </div>
   )
 }
