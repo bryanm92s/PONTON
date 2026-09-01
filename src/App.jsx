@@ -312,8 +312,8 @@ export default function App() {
             : <div style={{ fontSize: 28, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.15))' }}>{BIZ_EMOJI}</div>
           }
           <div>
-            <div style={{ fontFamily: 'Georgia,serif', fontSize: 16, color: 'white', fontWeight: 700, letterSpacing: '.01em' }}>{BIZ_NAME}</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.78)', letterSpacing: '0.16em', textTransform: 'uppercase', marginTop: 1 }}>{BIZ_SUBTITLE || BIZ_NAME}</div>
+            <div style={{ fontFamily: 'Georgia,serif', fontSize: 18, color: 'white', fontWeight: 700, letterSpacing: '.01em', lineHeight: 1.15 }}>{BIZ_NAME}</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 3, fontWeight: 500 }}>{BIZ_SUBTITLE || BIZ_NAME}</div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -586,20 +586,26 @@ function Dashboard({ enriched, payments, expenses, config, setTab }) {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>Panel</h1>
-      <p style={{ color: 'var(--t2)', margin: '0 0 16px', fontSize: 14 }}>{fmtDate(hoy)}</p>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18 }}>
+        <h1 style={{ fontSize: 26, margin: 0, fontFamily: 'Georgia,serif', letterSpacing: '.01em' }}>Panel</h1>
+        <span style={{ fontSize: 13, color: 'var(--t2)', fontWeight: 500 }}>{fmtDate(hoy)}</span>
+      </div>
 
-      <div className="card" style={{ background: 'var(--primary-l)', borderColor: 'var(--primary)', marginBottom: 14 }}>
-        <div style={{ fontSize: 12, color: 'var(--t2)', letterSpacing: '.04em', textTransform: 'uppercase' }}>Resultado</div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: saldo >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 4 }}>{fmtPeso(saldo)}</div>
-        <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 12, color: 'var(--t2)' }}>
-          <span>Saldo inicial: <b style={{ color: 'var(--t)' }}>{fmtPeso(config.saldoInicial)}</b></span>
-          <span>Ingresos: <b style={{ color: 'var(--green)' }}>+{fmtPeso(totalIngresos)}</b></span>
-          <span>Gastos: <b style={{ color: 'var(--red)' }}>−{fmtPeso(totalGastos)}</b></span>
+      <div className="card" style={{
+        background: 'var(--grad-soft)', borderColor: 'var(--primary)',
+        marginBottom: 18, padding: 18,
+        boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,0.5)',
+      }}>
+        <div style={{ fontSize: 11, color: 'var(--t2)', fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase' }}>Resultado</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color: saldo >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 6, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{fmtPeso(saldo)}</div>
+        <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12.5, color: 'var(--t2)', flexWrap: 'wrap' }}>
+          <span>Saldo inicial <b style={{ color: 'var(--t)' }}>{fmtPeso(config.saldoInicial)}</b></span>
+          <span>Ingresos <b style={{ color: 'var(--green)' }}>+{fmtPeso(totalIngresos)}</b></span>
+          <span>Gastos <b style={{ color: 'var(--red)' }}>−{fmtPeso(totalGastos)}</b></span>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
         <Tile icon="📅" label="Hoy"          val={reservasHoy.length}  onClick={() => setTab('reservas')} />
         <Tile icon="🟢" label="En curso"     val={enCurso.length}      onClick={() => setTab('reservas')} />
         <Tile icon="📆" label="Futuras"      val={futuras.length}      onClick={() => setTab('reservas')} />
@@ -607,42 +613,63 @@ function Dashboard({ enriched, payments, expenses, config, setTab }) {
       </div>
 
       {reservasHoy.length > 0 && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Hoy</h3>
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, letterSpacing: '.04em' }}>Hoy</h3>
           {reservasHoy.map(r => <ReservaRow key={r.id} r={r} onClick={() => setTab('edit-reserva', r.id)} />)}
         </div>
       )}
 
       {enCurso.length > 0 && (
-        <div className="card" style={{ marginBottom: 14, borderColor: 'var(--orange)' }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 14, color: 'var(--orange)' }}>⏵ En curso ahora</h3>
+        <div className="card" style={{ marginBottom: 16, borderColor: 'var(--orange)' }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--orange)', fontWeight: 700, letterSpacing: '.04em' }}>⏵ En curso ahora</h3>
           {enCurso.map(r => <ReservaRow key={r.id} r={r} onClick={() => setTab('edit-reserva', r.id)} />)}
         </div>
       )}
 
-      <button className="btn-pri" style={{ width: '100%', marginTop: 8, padding: 14, fontSize: 15 }} onClick={() => setTab('calendar')}>+ Nueva reserva</button>
+      <button className="btn-pri" style={{ width: '100%', marginTop: 12, padding: 16, fontSize: 15 }} onClick={() => setTab('calendar')}>+ Nueva reserva</button>
     </div>
   )
 }
 
 function Tile({ icon, label, val, onClick }) {
   return (
-    <button onClick={onClick} className="card" style={{ textAlign: 'left', cursor: 'pointer', border: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 22 }}>{icon}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>{val}</div>
-      <div style={{ fontSize: 12, color: 'var(--t2)' }}>{label}</div>
+    <button
+      onClick={onClick}
+      className="card kpi"
+      style={{
+        textAlign: 'left', cursor: 'pointer',
+        border: '1px solid var(--border)',
+        display: 'flex', flexDirection: 'column', gap: 6,
+        transition: 'transform .12s ease, box-shadow .12s ease',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 24px rgba(15, 60, 90, 0.10), -4px -4px 14px rgba(255,255,255,0.85)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 11, color: 'var(--t2)', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{label}</div>
+        <div style={{ fontSize: 18, opacity: 0.85 }}>{icon}</div>
+      </div>
+      <div style={{ fontSize: 30, fontWeight: 800, marginTop: 2, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{val}</div>
     </button>
   )
 }
 
 function ReservaRow({ r, onClick }) {
   return (
-    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', cursor: 'pointer', gap: 10 }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 600, fontSize: 14 }}>{r.clientName || '—'}</div>
+    <div onClick={onClick} style={{
+      display: 'flex', alignItems: 'center',
+      padding: '12px 4px', borderTop: '1px solid var(--border)',
+      cursor: 'pointer', gap: 12,
+      transition: 'background .12s ease',
+    }}
+    onMouseEnter={e => { e.currentTarget.style.background = 'var(--gray-bg)' }}
+    onMouseLeave={e => { e.currentTarget.style.background = '' }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.clientName || '—'}</div>
         <div style={{ fontSize: 12, color: 'var(--t2)' }}>{fmtTime(r.hora)} · {r.personas} pers · {fmtPeso(r.valor)}</div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end', flexShrink: 0 }}>
         <OpBadge estado={r.estadoOp} />
         <PagoBadge estado={r.pagoEstado} />
       </div>
@@ -665,27 +692,29 @@ function CalendarView({ enriched, setTab }) {
   const monthName = new Date(y, m - 1, 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
 
   // Paleta con más contraste para los estados del calendario.
+  // Días bloqueados (pasado / hoy-9am) usan opacidad en lugar de un color gris
+  // apagado, así el calendario se siente más vivo y se diferencian mejor.
   const state = (r, blocked) => {
-    if (r)    return { bg: '#FCE4E4', fg: '#9A1F1F', border: '#E07A7A' }     // ocupado (rojo fuerte)
-    if (blocked) return { bg: '#E5E7EA', fg: '#6B7280', border: '#C2C6CC' }  // pasado / hoy-bloqueado (gris)
-    return       { bg: '#D6F0DD', fg: '#1F6B3A', border: '#6FBE8A' }        // disponible (verde fuerte)
+    if (r)    return { bg: '#FCE4E4', fg: '#9A1F1F', border: '#E07A7A', dot: '#E07A7A' }     // ocupado
+    if (blocked) return { bg: 'transparent', fg: 'var(--t2)', border: 'transparent', dot: null } // pasado
+    return       { bg: '#D6F0DD', fg: '#1F6B3A', border: '#6FBE8A', dot: '#1F6B3A' }         // disponible
   }
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif', textTransform: 'capitalize' }}>Calendario</h1>
-      <p style={{ color: 'var(--t2)', margin: '0 0 14px', fontSize: 13 }}>Toca un día verde para reservar</p>
+      <h1 style={{ fontSize: 24, margin: '0 0 4px', fontFamily: 'Georgia,serif', textTransform: 'capitalize', letterSpacing: '.01em' }}>Calendario</h1>
+      <p style={{ color: 'var(--t2)', margin: '0 0 18px', fontSize: 13.5 }}>Toca un día verde para reservar</p>
 
-      <div className="card" style={{ padding: 10, maxWidth: 420, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <button className="btn-sec" onClick={() => { const d = new Date(y, m - 2, 1); setY(d.getFullYear()); setM(d.getMonth() + 1) }}>‹</button>
-          <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>{monthName}</div>
-          <button className="btn-sec" onClick={() => { const d = new Date(y, m, 1); setY(d.getFullYear()); setM(d.getMonth() + 1) }}>›</button>
+      <div className="card" style={{ padding: 14, maxWidth: 420, margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <button className="btn-sec" style={{ padding: '6px 12px', fontSize: 18, lineHeight: 1 }} onClick={() => { const d = new Date(y, m - 2, 1); setY(d.getFullYear()); setM(d.getMonth() + 1) }}>‹</button>
+          <div style={{ fontWeight: 700, textTransform: 'capitalize', fontSize: 16, letterSpacing: '.02em' }}>{monthName}</div>
+          <button className="btn-sec" style={{ padding: '6px 12px', fontSize: 18, lineHeight: 1 }} onClick={() => { const d = new Date(y, m, 1); setY(d.getFullYear()); setM(d.getMonth() + 1) }}>›</button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 3 }}>
-          {['L','M','M','J','V','S','D'].map((d, i) => <div key={i} style={{ textAlign: 'center', fontSize: 11, color: 'var(--t2)', fontWeight: 600 }}>{d}</div>)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 6 }}>
+          {['L','M','M','J','V','S','D'].map((d, i) => <div key={i} style={{ textAlign: 'center', fontSize: 11, color: 'var(--t2)', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{d}</div>)}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
           {cells.map((d, i) => {
             if (!d) return <div key={i} />
             const r = booked[d]
@@ -695,24 +724,45 @@ function CalendarView({ enriched, setTab }) {
             const blocked = isPast || isTodayBlocked
             const s = state(r, blocked)
             const day = Number(d.slice(8))
+            const interactive = !blocked || r
             return (
-              <button key={i} disabled={blocked && !r} onClick={() => r ? setTab('edit-reserva', r.id) : setTab('new-reserva', d)}
+              <button
+                key={i}
+                disabled={!interactive}
+                onClick={() => r ? setTab('edit-reserva', r.id) : setTab('new-reserva', d)}
                 title={r ? r.clientName : (blocked ? 'Día no disponible' : 'Disponible')}
-                style={{ aspectRatio: '1', maxHeight: 44, background: s.bg, color: s.fg, border: isToday ? '2px solid var(--primary)' : `1px solid ${s.border}`, borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: r || !blocked ? 'pointer' : 'default', padding: 0, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                className="cal-day"
+                style={{
+                  aspectRatio: '1', minHeight: 48,
+                  background: s.bg, color: s.fg,
+                  border: isToday ? '2px solid var(--primary)' : `1px solid ${s.border}`,
+                  borderRadius: 10,
+                  fontWeight: 700, fontSize: 15, letterSpacing: '.01em',
+                  cursor: interactive ? 'pointer' : 'default',
+                  padding: 0, fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  position: 'relative',
+                  opacity: blocked ? 0.45 : 1,
+                  transition: 'transform .12s ease, box-shadow .12s ease, opacity .12s ease',
+                }}
+                onMouseEnter={e => { if (interactive) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(15, 60, 90, 0.15)' } }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}
+              >
                 {day}
+                {r && <span style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: 3, background: s.dot }} />}
               </button>
             )
           })}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 14, fontSize: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: '#D6F0DD', border: '1px solid #6FBE8A', borderRadius: 3 }} /><b>Disponible</b></span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: '#FCE4E4', border: '1px solid #E07A7A', borderRadius: 3 }} /><b>Ocupado</b></span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: '#E5E7EA', border: '1px solid #C2C6CC', borderRadius: 3 }} /><b>Pasado</b></span>
+      <div style={{ display: 'flex', gap: 16, marginTop: 18, fontSize: 12.5, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: '#D6F0DD', border: '1px solid #6FBE8A', borderRadius: 4, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} />Disponible</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: '#FCE4E4', border: '1px solid #E07A7A', borderRadius: 4, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} />Ocupado</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: 'transparent', border: '1px dashed var(--border)', borderRadius: 4 }} />Pasado</span>
       </div>
 
-      <button className="btn-pri" style={{ width: '100%', marginTop: 14, padding: 14 }} onClick={() => setTab('new-reserva', todayStr())} disabled={pastCutoff}>
+      <button className="btn-pri" style={{ width: '100%', marginTop: 20, padding: 15, fontSize: 15 }} onClick={() => setTab('new-reserva', todayStr())} disabled={pastCutoff}>
         {pastCutoff ? 'Ya pasaron las ' + HORA_CORTE_HOY + ':00 — no se puede reservar hoy' : '+ Nueva reserva'}
       </button>
     </div>
@@ -813,7 +863,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
   return (
     <div>
       <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
-      <h1 style={{ fontSize: 22, margin: '0 0 14px', fontFamily: 'Georgia,serif' }}>Nueva reserva</h1>
+      <h1 style={{ fontSize: 24, margin: '0 0 16px', fontFamily: 'Georgia,serif', letterSpacing: '.01em' }}>Nueva reserva</h1>
 
       <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
         <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 4 }}>Horario del recorrido</div>
@@ -1327,7 +1377,7 @@ function ReservasTab({ enriched, setTab }) {
   if (total === 0) {
     return (
       <div>
-        <h1 style={{ fontSize: 22, margin: '0 0 14px', fontFamily: 'Georgia,serif' }}>Reservas</h1>
+        <h1 style={{ fontSize: 24, margin: '0 0 16px', fontFamily: 'Georgia,serif', letterSpacing: '.01em' }}>Reservas</h1>
         <div className="card" style={{ textAlign: 'center', padding: 30 }}>
           <div style={{ fontSize: 40 }}>📅</div>
           <p style={{ color: 'var(--t2)' }}>Aún no hay reservas.</p>
@@ -1379,7 +1429,7 @@ function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: '0 0 14px', fontFamily: 'Georgia,serif' }}>Clientes</h1>
+      <h1 style={{ fontSize: 24, margin: '0 0 16px', fontFamily: 'Georgia,serif', letterSpacing: '.01em' }}>Clientes</h1>
       <input className="inp" placeholder="🔍 Buscar por nombre o celular" value={q} onChange={e => setQ(e.target.value)} style={{ marginBottom: 12 }} />
       {list.length === 0 && <div className="card" style={{ textAlign: 'center', color: 'var(--t2)' }}>Sin clientes</div>}
       {list.map(c => {
@@ -1619,7 +1669,7 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: '0 0 14px', fontFamily: 'Georgia,serif' }}>Ajustes</h1>
+      <h1 style={{ fontSize: 24, margin: '0 0 16px', fontFamily: 'Georgia,serif', letterSpacing: '.01em' }}>Ajustes</h1>
 
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Negocio</h3>
