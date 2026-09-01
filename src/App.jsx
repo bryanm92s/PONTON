@@ -5,6 +5,7 @@ import {
   cleanDate, fmtDate, fmtTime, fmtPeso, MAX_PAX,
   CATEGORIAS_GASTO, totalPagado, totalRestante, pagoEstadoDe, dayBooked,
   estadoOpEfectivo, enrichReservas, buildMonthBooked, monthCells, nextReservaId,
+  normalizeCategoria, categoriasDeGastos,
 } from './helpers.js'
 
 /* ══════════════════════════════════════════════════════════════
@@ -220,6 +221,20 @@ export default function App() {
   const SR = useCallback((v, x = {}) => sync({ reservations: v, ...x }), [sync])
   const SP = useCallback((v, x = {}) => sync({ payments: v, ...x }), [sync])
   const SE = useCallback((v, x = {}) => sync({ expenses: v, ...x }), [sync])
+  // Editar / eliminar un abono existente.
+  const updatePago = useCallback((pagoId, patch) => {
+    const next = (Array.isArray(payments) ? payments : []).map(p => p.id === pagoId ? { ...p, ...patch } : p)
+    return SP(next)
+  }, [payments, SP])
+  const deletePago = useCallback((pagoId) => {
+    const next = (Array.isArray(payments) ? payments : []).filter(p => p.id !== pagoId)
+    return SP(next)
+  }, [payments, SP])
+  // Eliminar un gasto manual (los del viaje solo se eliminan al borrar la reserva).
+  const deleteGasto = useCallback((gastoId) => {
+    const next = (Array.isArray(expenses) ? expenses : []).filter(e => e.id !== gastoId)
+    return SE(next)
+  }, [expenses, SE])
   const SCfg = useCallback((v) => sync({ config: v }), [sync])
 
   const confirm  = (msg, onOk) => setModal({ type: 'confirm', msg, onOk })
@@ -237,15 +252,22 @@ export default function App() {
   }, [reservas])
 
   const deleteReserva = useCallback(async r => {
+    // Borrar la reserva y, en cascada, sus abonos y gastos para que el
+    // dinero no siga contando en finanzas.
     const next = reservas.filter(x => x.id !== r.id)
-    SR(next)
+    const nextP = (Array.isArray(payments) ? payments : []).filter(p => String(p.reservaId) !== String(r.id))
+    const nextE = (Array.isArray(expenses) ? expenses : []).filter(e => String(e.reservaId) !== String(r.id))
+    await SR(next)
+    await SP(nextP)
+    await SE(nextE)
     if (r.calendarEventId) saveData({ action: 'deleteCalendarEvent', eventId: r.calendarEventId }).catch(() => {})
-  }, [reservas, SR])
+  }, [reservas, payments, expenses, SR, SP, SE])
 
   const p = {
     config, setConfig, SCfg,
     clients, reservas, payments, expenses, enriched,
-    SC, SR, SP, SE, sync, deleteReserva, setTab, goBack, confirm, infoModal, setModal, tabExtra,
+    SC, SR, SP, SE, sync, deleteReserva, updatePago, deletePago, deleteGasto,
+    setTab, goBack, confirm, infoModal, setModal, tabExtra,
     resetAll, themeMode, themePalette, setThemeMode, setThemePalette,
     tick,
   }
@@ -258,7 +280,7 @@ export default function App() {
       <GS />
       {modal?.type === 'confirm' && <Modal msg={modal.msg} onOk={() => { modal.onOk(); setModal(null) }} onCancel={() => setModal(null)} />}
       {modal?.type === 'info'    && <Modal msg={modal.msg} onOk={() => setModal(null)} okLabel="Entendido" cancelLabel={null} />}
-      {modal?.type === 'custom'  && <Modal onOk={() => { modal.onOk && modal.onOk(); setModal(null) }} onCancel={modal.onCancel ? () => { modal.onCancel(); setModal(null) } : null} okLabel={modal.okLabel || 'Aceptar'} cancelLabel={modal.cancelLabel}>{modal.body}</Modal>}
+      {modal?.type === 'custom'  && <Modal onOk={() => { const r = modal.onOk && modal.onOk(); if (r !== false) setModal(null) }} onCancel={modal.onCancel ? () => { modal.onCancel(); setModal(null) } : null} okLabel={modal.okLabel || 'Aceptar'} cancelLabel={modal.cancelLabel} danger={modal.danger} okDisabled={modal.okDisabled}>{modal.body}</Modal>}
 
       <header style={{ background: 'var(--primary)', padding: '13px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,0,0,0.18)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -306,6 +328,7 @@ export default function App() {
         {tab === 'edit-reserva'  && <EditReserva    {...p} />}
         {tab === 'finalizar'     && <FinalizarReserva {...p} />}
         {tab === 'pago'          && <RegistrarPago  {...p} />}
+        {tab === 'nuevo-gasto'   && <NuevoGasto     {...p} />}
         {tab === 'client-history' && <ClientHistory  {...p} />}
       </main>
 
@@ -321,7 +344,7 @@ export default function App() {
 ══════════════════════════════════════════════════════════════ */
 function Cent({ children }) { return <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', textAlign: 'center', padding: 20 }}>{children}</div> }
 
-function Modal({ msg, onOk, onCancel, okLabel = 'Aceptar', cancelLabel = 'Cancelar', children }) {
+function Modal({ msg, onOk, onCancel, okLabel = 'Aceptar', cancelLabel = 'Cancelar', children, danger, okDisabled }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: 'var(--card)', borderRadius: 14, padding: 20, maxWidth: 380, width: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.25)' }}>
@@ -330,7 +353,7 @@ function Modal({ msg, onOk, onCancel, okLabel = 'Aceptar', cancelLabel = 'Cancel
           : <div style={{ fontSize: 15, marginBottom: 16, lineHeight: 1.4 }}>{msg}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           {cancelLabel && <button onClick={onCancel} className="btn-sec">{cancelLabel}</button>}
-          <button onClick={onOk} className="btn-pri">{okLabel}</button>
+          <button onClick={onOk} className={danger ? 'btn-danger' : 'btn-pri'} disabled={okDisabled}>{okLabel}</button>
         </div>
       </div>
     </div>
@@ -703,7 +726,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
 /* ══════════════════════════════════════════════════════════════
    EDITAR RESERVA (ficha de operación)
 ══════════════════════════════════════════════════════════════ */
-function EditReserva({ enriched, reservas, payments, expenses, config, SR, deleteReserva, setTab, confirm, infoModal, tabExtra, goBack }) {
+function EditReserva({ enriched, reservas, payments, expenses, config, SR, deleteReserva, deletePago, setTab, confirm, infoModal, tabExtra, goBack }) {
   const r = enriched.find(x => x.id === tabExtra)
   const [personas, setPersonas] = useState(r?.personas || 1)
   const [valor,    setValor]    = useState(String(r?.valor || 0))
@@ -793,9 +816,18 @@ function EditReserva({ enriched, reservas, payments, expenses, config, SR, delet
         <div className="card" style={{ marginBottom: 12 }}>
           <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Abonos</h3>
           {pagosReserva.map(p => (
-            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
-              <span>{fmtDate(p.fecha)} {p.metodo ? '· ' + p.metodo : ''}</span>
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
+              <div style={{ flex: 1 }}>
+                <div>{fmtDate(p.fecha)} {p.metodo ? '· ' + p.metodo : ''}</div>
+                {p.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{p.nota}</div> : null}
+              </div>
               <b style={{ color: 'var(--green)' }}>+{fmtPeso(p.monto)}</b>
+              {!locked && (
+                <>
+                  <button onClick={() => setTab('edit-pago', p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Editar abono">✏️</button>
+                  <button onClick={() => confirm('¿Eliminar este abono de ' + fmtPeso(p.monto) + '?', () => deletePago(p.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Eliminar abono">🗑</button>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -810,6 +842,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, SR, delet
               <b style={{ color: 'var(--red)' }}>−{fmtPeso(g.monto)}</b>
             </div>
           ))}
+          <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 6 }}>Los gastos del viaje se registran al finalizar y no se editan individualmente. Si necesitas ajustar uno, contacta al administrador.</div>
         </div>
       )}
 
@@ -843,12 +876,17 @@ function Row({ label, val, bold }) {
 /* ══════════════════════════════════════════════════════════════
    REGISTRAR ABONO / PAGO
 ══════════════════════════════════════════════════════════════ */
-function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, tabExtra, goBack, config }) {
-  const r = enriched.find(x => x.id === tabExtra)
-  const [monto, setMonto] = useState('')
-  const [fecha, setFecha] = useState(todayStr())
-  const [metodo, setMetodo] = useState('Transferencia')
-  const [nota, setNota] = useState('')
+function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, tabExtra, goBack, config, updatePago }) {
+  // Detectar modo: si tabExtra es un id de pago, editamos; si es un id de reserva, creamos.
+  const pagoExistente = (Array.isArray(payments) ? payments : []).find(p => p.id === tabExtra)
+  const r = pagoExistente
+    ? enriched.find(x => x.id === pagoExistente.reservaId)
+    : enriched.find(x => x.id === tabExtra)
+  const editando = !!pagoExistente
+  const [monto, setMonto] = useState(editando ? String(pagoExistente.monto) : '')
+  const [fecha, setFecha] = useState(editando ? (pagoExistente.fecha || todayStr()) : todayStr())
+  const [metodo, setMetodo] = useState(editando ? (pagoExistente.metodo || 'Transferencia') : 'Transferencia')
+  const [nota, setNota] = useState(editando ? (pagoExistente.nota || '') : '')
 
   if (!r) return <div className="card">Reserva no encontrada.</div>
 
@@ -880,8 +918,33 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
   const submit = async () => {
     const m = toN(monto)
     if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
-    if (m > r.totalRestante) {
-      infoModal('El abono de ' + fmtPeso(m) + ' supera el saldo pendiente de ' + fmtPeso(r.totalRestante) + '. Corrige el monto.')
+    // En edición no tiene sentido comparar contra el resta, porque el
+    // pago viejo ya está contando. Calculamos el resta excluyendo el pago
+    // que estamos editando.
+    const restaSinEste = editando
+      ? Math.max(0, r.valor - (r.totalPagado - toN(pagoExistente.monto)))
+      : r.totalRestante
+    if (m > restaSinEste) {
+      infoModal('El abono de ' + fmtPeso(m) + ' supera el saldo pendiente de ' + fmtPeso(restaSinEste) + '. Corrige el monto.')
+      return
+    }
+    if (editando) {
+      await updatePago(pagoExistente.id, { fecha, monto: m, metodo, nota })
+      setModal({
+        type: 'custom',
+        okLabel: 'Volver a la reserva',
+        cancelLabel: null,
+        body: (
+          <div>
+            <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>✏️</div>
+            <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10, color: 'var(--green)' }}>
+              ¡Abono actualizado!
+            </div>
+            <p>El abono de la reserva <b>{r.id}</b> se actualizó a <b style={{ color: 'var(--green)' }}>+{fmtPeso(m)}</b>.</p>
+          </div>
+        ),
+        onOk: () => setTab('edit-reserva', r.id),
+      })
       return
     }
     const newP = { id: uid(), reservaId: r.id, fecha, monto: m, metodo, nota }
@@ -949,13 +1012,13 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
   return (
     <div>
       <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
-      <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>Registrar abono</h1>
-      <p style={{ color: 'var(--t2)', margin: '0 0 14px' }}>{r.id} · {r.clientName} · Resta {fmtPeso(r.totalRestante)}</p>
+      <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>{editando ? 'Editar abono' : 'Registrar abono'}</h1>
+      <p style={{ color: 'var(--t2)', margin: '0 0 14px' }}>{r.id} · {r.clientName} · Resta {fmtPeso(editando ? Math.max(0, r.valor - (r.totalPagado - toN(pagoExistente.monto))) : r.totalRestante)}</p>
 
       <div className="card" style={{ marginBottom: 12 }}>
         <label className="lbl">Monto</label>
-        <input type="number" min="0" max={r.totalRestante} step="any" className="inp" placeholder="0" value={monto} onChange={e => setMonto(e.target.value)} autoFocus />
-        <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(r.totalRestante)}</b> (saldo pendiente)</div>
+        <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={e => setMonto(e.target.value)} autoFocus />
+        <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(editando ? Math.max(0, r.valor - (r.totalPagado - toN(pagoExistente.monto))) : r.totalRestante)}</b> (saldo pendiente)</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
         <div className="card">
@@ -979,7 +1042,7 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
         <input className="inp" value={nota} onChange={e => setNota(e.target.value)} />
       </div>
 
-      <button className="btn-pri" style={{ width: '100%', padding: 14, fontSize: 15 }} onClick={submit}>Registrar</button>
+      <button className="btn-pri" style={{ width: '100%', padding: 14, fontSize: 15 }} onClick={submit}>{editando ? 'Guardar cambios' : 'Registrar'}</button>
     </div>
   )
 }
@@ -1210,9 +1273,87 @@ function ClientHistory({ clients, enriched, setTab, tabExtra, goBack }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   NUEVO GASTO MANUAL
+══════════════════════════════════════════════════════════════ */
+function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
+  const [categoria,  setCategoria]  = useState('')
+  const [nuevaCat,   setNuevaCat]   = useState('')
+  const [usarNueva,  setUsarNueva]  = useState(false)
+  const [monto,      setMonto]      = useState('')
+  const [fecha,      setFecha]      = useState(todayStr())
+  const [nota,       setNota]       = useState('')
+
+  const cats = categoriasDeGastos(expenses)
+
+  const onChangeMonto = e => {
+    const v = e.target.value
+    if (v === '' || v === '-') { setMonto(''); return }
+    const n = Number(v)
+    if (isNaN(n)) return
+    setMonto(n < 0 ? '0' : String(n))
+  }
+
+  const submit = async () => {
+    const m = toN(monto)
+    if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
+    const cat = usarNueva ? normalizeCategoria(nuevaCat) : normalizeCategoria(categoria)
+    if (!cat) { infoModal('Indica una categoría.'); return }
+    const newG = { id: uid(), reservaId: '', fecha, categoria: cat, monto: m, nota }
+    await SE([...expenses, newG])
+    infoModal('Gasto registrado.')
+    setTab('finanzas')
+  }
+
+  return (
+    <div>
+      <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
+      <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>Nuevo gasto manual</h1>
+      <p style={{ color: 'var(--t2)', margin: '0 0 14px' }}>Registra un gasto del negocio: mantenimiento, arriendo, compra de repuestos, etc.</p>
+
+      <div className="card" style={{ marginBottom: 12 }}>
+        <label className="lbl">Categoría</label>
+        {!usarNueva ? (
+          <>
+            <select className="inp" value={categoria} onChange={e => setCategoria(e.target.value)}>
+              <option value="">— Selecciona —</option>
+              {cats.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button className="btn-sec" style={{ width: '100%', marginTop: 8 }} onClick={() => setUsarNueva(true)}>+ Crear nueva categoría</button>
+          </>
+        ) : (
+          <>
+            <input className="inp" placeholder="Ej. mantenimiento, arriendo…" value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} />
+            <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Se guardará como: <b>{normalizeCategoria(nuevaCat) || '—'}</b> (todo en minúscula)</div>
+            <button className="btn-sec" style={{ width: '100%', marginTop: 8 }} onClick={() => { setUsarNueva(false); setNuevaCat('') }}>← Elegir de la lista</button>
+          </>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <div className="card">
+          <label className="lbl">Monto</label>
+          <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={onChangeMonto} autoFocus />
+        </div>
+        <div className="card">
+          <label className="lbl">Fecha</label>
+          <input type="date" className="inp" value={fecha} onChange={e => setFecha(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 14 }}>
+        <label className="lbl">Nota (opcional)</label>
+        <input className="inp" value={nota} onChange={e => setNota(e.target.value)} placeholder="Detalle del gasto…" />
+      </div>
+
+      <button className="btn-pri" style={{ width: '100%', padding: 14, fontSize: 15 }} onClick={submit}>Registrar gasto</button>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════
    FINANZAS
 ══════════════════════════════════════════════════════════════ */
-function FinanzasTab({ config, payments, expenses, enriched, setTab }) {
+function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto, confirm }) {
   const totalIng = (Array.isArray(payments) ? payments : []).reduce((s, p) => s + toN(p.monto), 0)
   const totalGas = (Array.isArray(expenses) ? expenses : []).reduce((s, e) => s + toN(e.monto), 0)
   const saldo    = toN(config.saldoInicial) + totalIng - totalGas
@@ -1231,7 +1372,10 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab }) {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: '0 0 14px', fontFamily: 'Georgia,serif' }}>Finanzas</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <h1 style={{ fontSize: 22, margin: 0, fontFamily: 'Georgia,serif' }}>Finanzas</h1>
+        <button className="btn-pri" onClick={() => setTab('nuevo-gasto')}>+ Nuevo gasto</button>
+      </div>
 
       <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
         <div style={{ fontSize: 12, color: 'var(--t2)', letterSpacing: '.04em', textTransform: 'uppercase' }}>Resultado</div>
@@ -1259,8 +1403,11 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab }) {
         {ingList.map(p => {
           const r = enriched.find(x => x.id === p.reservaId)
           return (
-            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
-              <span>{fmtDate(p.fecha)} · <b>{p.reservaId}</b> {p.metodo ? '· ' + p.metodo : ''}</span>
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
+              <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
+                <span>{fmtDate(p.fecha)} · <b>{p.reservaId}</b> {p.metodo ? '· ' + p.metodo : ''}</span>
+                {p.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{p.nota}</div> : null}
+              </div>
               <b style={{ color: 'var(--green)' }}>+{fmtPeso(p.monto)}</b>
             </div>
           )
@@ -1272,13 +1419,27 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab }) {
         {gasList.length === 0 && <div style={{ color: 'var(--t2)', padding: 8 }}>Sin gastos aún</div>}
         {gasList.map(g => {
           const r = enriched.find(x => x.id === g.reservaId)
+          const esDelViaje = !!g.reservaId
           return (
-            <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
-              <span>{fmtDate(g.fecha)} · <b>{g.categoria}</b> {g.reservaId ? '· ' + g.reservaId : ''}</span>
+            <div key={g.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
+              <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
+                <span>{fmtDate(g.fecha)} · <b>{g.categoria}</b>
+                  {esDelViaje ? <Badge bg="var(--primary-l)" fg="var(--primary-d)">viaje {g.reservaId}</Badge> : <Badge bg="var(--gray-bg)" fg="var(--t2)">manual</Badge>}
+                </span>
+                {g.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{g.nota}</div> : null}
+              </div>
               <b style={{ color: 'var(--red)' }}>−{fmtPeso(g.monto)}</b>
+              {!esDelViaje && (
+                <button onClick={() => confirm('¿Eliminar este gasto de ' + fmtPeso(g.monto) + '?', () => deleteGasto(g.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Eliminar gasto">🗑</button>
+              )}
             </div>
           )
         })}
+        {gasList.some(g => g.reservaId) && (
+          <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 6 }}>
+            Los gastos con badge <b>viaje</b> se generan al finalizar la reserva y solo se eliminan borrando la reserva.
+          </div>
+        )}
       </details>
     </div>
   )
@@ -1287,9 +1448,10 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab }) {
 /* ══════════════════════════════════════════════════════════════
    AJUSTES
 ══════════════════════════════════════════════════════════════ */
-function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setThemeMode, setThemePalette, confirm }) {
+function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setThemeMode, setThemePalette, setModal }) {
   const [saldo,  setSaldo]  = useState(config.saldoInicial || '0')
   const [pe,     setPe]     = useState(config.puntoEncuentro || '')
+  const [confirmText, setConfirmText] = useState('')
 
   useEffect(() => {
     setSaldo(config.saldoInicial || '0')
@@ -1298,6 +1460,49 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
 
   const save = async () => {
     await SCfg({ saldoInicial: toN(saldo), puntoEncuentro: pe })
+  }
+
+  const askReset = () => {
+    setConfirmText('')
+    setModal({
+      type: 'custom',
+      danger: true,
+      okLabel: 'Eliminar todo',
+      cancelLabel: 'Cancelar',
+      body: (
+        <div>
+          <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>⚠️</div>
+          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10, color: 'var(--red)' }}>
+            ¿Borrar TODOS los datos?
+          </div>
+          <p style={{ margin: '0 0 10px' }}>
+            Se eliminarán <b>todas las reservas, clientes, pagos y gastos</b>. Esta acción <b>no se puede deshacer</b>.
+          </p>
+          <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--t2)' }}>
+            Para confirmar, escribe la palabra <b>CONFIRMAR</b> en el campo de abajo:
+          </p>
+          <input
+            className="inp"
+            autoFocus
+            placeholder="Escribe CONFIRMAR"
+            value={confirmText}
+            onChange={e => setConfirmText(e.target.value)}
+          />
+          <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>
+            {confirmText.length === 0
+              ? 'Escribe CONFIRMAR (en mayúsculas) para activar el botón Eliminar.'
+              : (confirmText.trim().toUpperCase() === 'CONFIRMAR'
+                  ? <span style={{ color: 'var(--red)' }}>⚠️ Listo para eliminar. Esta acción es irreversible.</span>
+                  : <span>Lo escrito no coincide. Escribe exactamente CONFIRMAR (en mayúsculas).</span>)}
+          </div>
+        </div>
+      ),
+      onOk: () => {
+        if (confirmText.trim().toUpperCase() !== 'CONFIRMAR') return false
+        resetAll()
+        return true
+      },
+    })
   }
 
   return (
@@ -1332,7 +1537,10 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
 
       <div className="card">
         <h3 style={{ margin: '0 0 10px', fontSize: 14, color: 'var(--red)' }}>Zona peligrosa</h3>
-        <button className="btn-danger" style={{ width: '100%' }} onClick={() => confirm('¿Borrar TODO? Esta acción no se puede deshacer.', () => confirm('¿Seguro? Se eliminarán todas las reservas, clientes, pagos y gastos.', resetAll))}>
+        <p style={{ fontSize: 12, color: 'var(--t2)', margin: '0 0 10px' }}>
+          Esta acción borra permanentemente todos los datos. Úsala solo si quieres empezar de cero.
+        </p>
+        <button className="btn-danger" style={{ width: '100%' }} onClick={askReset}>
           🗑 Borrar todos los datos
         </button>
       </div>

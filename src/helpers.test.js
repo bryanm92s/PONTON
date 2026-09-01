@@ -3,6 +3,7 @@ import {
   toN, cleanDate, cleanTime, phoneMatch, fmtPeso,
   totalPagado, totalRestante, pagoEstadoDe, dayBooked,
   estadoOpEfectivo, enrichReservas, buildMonthBooked, monthCells, nextReservaId, MAX_PAX,
+  normalizeCategoria, categoriasDeGastos,
 } from './helpers.js'
 
 describe('toN', () => {
@@ -161,5 +162,45 @@ describe('nextReservaId', () => {
 describe('MAX_PAX', () => {
   it('la capacidad del pontón es 12', () => {
     expect(MAX_PAX).toBe(12)
+  })
+})
+
+describe('normalizeCategoria', () => {
+  it('toda la cadena va en minúscula sin importar la entrada', () => {
+    expect(normalizeCategoria('Mantenimiento')).toBe('mantenimiento')
+    expect(normalizeCategoria('COMBUSTIBLE')).toBe('combustible')
+    expect(normalizeCategoria('Arriendo')).toBe('arriendo')
+    expect(normalizeCategoria('compra de repuestos')).toBe('compra de repuestos')
+  })
+  it('compacta espacios múltiples y recorta extremos', () => {
+    expect(normalizeCategoria('  Almuerzo  ')).toBe('almuerzo')
+    expect(normalizeCategoria('a   b   c')).toBe('a b c')
+  })
+  it('devuelve "" para entradas vacías o sin sentido', () => {
+    expect(normalizeCategoria('')).toBe('')
+    expect(normalizeCategoria('   ')).toBe('')
+    expect(normalizeCategoria(null)).toBe('')
+  })
+})
+
+describe('categoriasDeGastos', () => {
+  it('incluye las predeterminadas y las que aparezcan en los gastos', () => {
+    const cats = categoriasDeGastos([
+      { id: '1', categoria: 'Mantenimiento', monto: 100 },
+      { id: '2', categoria: 'ARRIENDO',      monto: 200 },
+      { id: '3', categoria: 'Mantenimiento', monto: 50 },
+    ])
+    expect(cats).toContain('mantenimiento')
+    expect(cats).toContain('arriendo')
+    expect(cats).toContain('tripulación')
+    expect(cats).toContain('administración')
+    expect(cats).toContain('combustible')
+    expect(cats).toContain('otros')
+    // Sin duplicados
+    expect(new Set(cats).size).toBe(cats.length)
+  })
+  it('funciona con expenses vacío o null', () => {
+    expect(categoriasDeGastos([])).toEqual(['tripulación', 'administración', 'combustible', 'otros'])
+    expect(categoriasDeGastos(null)).toEqual(['tripulación', 'administración', 'combustible', 'otros'])
   })
 })

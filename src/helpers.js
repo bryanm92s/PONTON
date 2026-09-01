@@ -186,3 +186,25 @@ export const nextReservaId = reservas => {
   });
   return 'RES-' + String(max + 1).padStart(4, '0');
 };
+
+// Normaliza el nombre de una categoría de gasto: la primera letra y todo el
+// resto van en minúscula, sin importar cómo lo escriba el usuario.
+// 'Mantenimiento' → 'mantenimiento', 'COMBUSTIBLE' → 'combustible', 'Arriendo' → 'arriendo'
+export const normalizeCategoria = raw => {
+  const s = String(raw || '').trim().toLowerCase()
+  if (!s) return ''
+  // Compacta espacios múltiples y los reemplaza por uno solo.
+  return s.replace(/\s+/g, ' ')
+}
+
+// Devuelve la lista de categorías únicas a partir de los gastos existentes,
+// más las predeterminadas que aún no estén presentes.
+export const categoriasDeGastos = (expenses) => {
+  const base = ['tripulación', 'administración', 'combustible', 'otros']
+  const set = new Set(base)
+  ;(Array.isArray(expenses) ? expenses : []).forEach(e => {
+    const c = normalizeCategoria(e.categoria)
+    if (c) set.add(c)
+  })
+  return Array.from(set)
+}
