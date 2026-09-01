@@ -121,8 +121,24 @@ export default function App() {
   const [lastSync,   setLS]  = useState(null)
   const [modal,      setModal] = useState(null)
   const [tick,       setTick] = useState(0) // para refrescar "EN_CURSO" en vivo
+  // Pila de navegación para que "Volver" regrese al lugar real desde donde se entró.
+  const [history,    setHistory] = useState([])
 
-  const setTab = (t, extra = null) => { setTabRaw(t); setTabExtra(extra) }
+  const setTab = useCallback((t, extra = null, from = null) => {
+    setHistory(h => [...h, { tab, extra: tabExtra }])
+    setTabRaw(t)
+    setTabExtra(extra)
+  }, [tab, tabExtra])
+
+  // Restaura la última entrada de la pila (no apila).
+  const goBack = useCallback(() => {
+    setHistory(h => {
+      if (h.length === 0) { setTabRaw('reservas'); setTabExtra(null); return h }
+      const last = h[h.length - 1]
+      setTabRaw(last.tab); setTabExtra(last.extra)
+      return h.slice(0, -1)
+    })
+  }, [])
 
   // Título + favicon dinámicos
   useEffect(() => {
@@ -229,7 +245,7 @@ export default function App() {
   const p = {
     config, setConfig, SCfg,
     clients, reservas, payments, expenses, enriched,
-    SC, SR, SP, SE, sync, deleteReserva, setTab, confirm, infoModal, setModal, tabExtra,
+    SC, SR, SP, SE, sync, deleteReserva, setTab, goBack, confirm, infoModal, setModal, tabExtra,
     resetAll, themeMode, themePalette, setThemeMode, setThemePalette,
     tick,
   }
@@ -270,7 +286,7 @@ export default function App() {
           ['finanzas',  'chart',    'Finanzas'],
           ['settings',  'gear',     'Ajustes'],
         ].map(([id, ic, lb]) => (
-          <button key={id} onClick={() => setTab(id)} className={`nb${tab === id ? ' act' : ''}`}
+          <button key={id} onClick={() => { setHistory([]); setTabRaw(id); setTabExtra(null) }} className={`nb${tab === id ? ' act' : ''}`}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 9, paddingBottom: 9, paddingLeft: 12, paddingRight: 12 }}>
             <NavIcon type={ic} active={tab === id} />
             <span style={{ fontSize: 10, letterSpacing: '.02em' }}>{lb}</span>
@@ -480,21 +496,28 @@ function CalendarView({ enriched, setTab }) {
 
   const monthName = new Date(y, m - 1, 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
 
+  // Paleta con más contraste para los estados del calendario.
+  const state = (r, blocked) => {
+    if (r)    return { bg: '#FCE4E4', fg: '#9A1F1F', border: '#E07A7A' }     // ocupado (rojo fuerte)
+    if (blocked) return { bg: '#E5E7EA', fg: '#6B7280', border: '#C2C6CC' }  // pasado / hoy-bloqueado (gris)
+    return       { bg: '#D6F0DD', fg: '#1F6B3A', border: '#6FBE8A' }        // disponible (verde fuerte)
+  }
+
   return (
     <div>
       <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif', textTransform: 'capitalize' }}>Calendario</h1>
       <p style={{ color: 'var(--t2)', margin: '0 0 14px', fontSize: 13 }}>Toca un día verde para reservar</p>
 
-      <div className="card" style={{ padding: 10 }}>
+      <div className="card" style={{ padding: 10, maxWidth: 420, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <button className="btn-sec" onClick={() => { const d = new Date(y, m - 2, 1); setY(d.getFullYear()); setM(d.getMonth() + 1) }}>‹</button>
           <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>{monthName}</div>
           <button className="btn-sec" onClick={() => { const d = new Date(y, m, 1); setY(d.getFullYear()); setM(d.getMonth() + 1) }}>›</button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 3 }}>
           {['L','M','M','J','V','S','D'].map((d, i) => <div key={i} style={{ textAlign: 'center', fontSize: 11, color: 'var(--t2)', fontWeight: 600 }}>{d}</div>)}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
           {cells.map((d, i) => {
             if (!d) return <div key={i} />
             const r = booked[d]
@@ -502,12 +525,12 @@ function CalendarView({ enriched, setTab }) {
             const isTodayBlocked = d === todayD && pastCutoff
             const isToday = d === todayD
             const blocked = isPast || isTodayBlocked
-            const bg = r ? 'var(--red-bg)' : blocked ? 'var(--gray-bg)' : 'var(--green-bg)'
-            const fg = r ? 'var(--red)' : blocked ? 'var(--t2)' : 'var(--green)'
+            const s = state(r, blocked)
             const day = Number(d.slice(8))
             return (
               <button key={i} disabled={blocked && !r} onClick={() => r ? setTab('edit-reserva', r.id) : setTab('new-reserva', d)}
-                style={{ aspectRatio: '1', background: bg, color: fg, border: isToday ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: r || !blocked ? 'pointer' : 'default', padding: 0, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                title={r ? r.clientName : (blocked ? 'Día no disponible' : 'Disponible')}
+                style={{ aspectRatio: '1', maxHeight: 44, background: s.bg, color: s.fg, border: isToday ? '2px solid var(--primary)' : `1px solid ${s.border}`, borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: r || !blocked ? 'pointer' : 'default', padding: 0, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {day}
               </button>
             )
@@ -515,10 +538,10 @@ function CalendarView({ enriched, setTab }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 14, marginTop: 14, fontSize: 12, color: 'var(--t2)', flexWrap: 'wrap' }}>
-        <span><span style={{ display: 'inline-block', width: 12, height: 12, background: 'var(--green-bg)', borderRadius: 3, verticalAlign: 'middle', marginRight: 5 }} />Disponible</span>
-        <span><span style={{ display: 'inline-block', width: 12, height: 12, background: 'var(--red-bg)', borderRadius: 3, verticalAlign: 'middle', marginRight: 5 }} />Ocupado</span>
-        <span><span style={{ display: 'inline-block', width: 12, height: 12, background: 'var(--gray-bg)', borderRadius: 3, verticalAlign: 'middle', marginRight: 5 }} />Pasado</span>
+      <div style={{ display: 'flex', gap: 12, marginTop: 14, fontSize: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: '#D6F0DD', border: '1px solid #6FBE8A', borderRadius: 3 }} /><b>Disponible</b></span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: '#FCE4E4', border: '1px solid #E07A7A', borderRadius: 3 }} /><b>Ocupado</b></span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: '#E5E7EA', border: '1px solid #C2C6CC', borderRadius: 3 }} /><b>Pasado</b></span>
       </div>
 
       <button className="btn-pri" style={{ width: '100%', marginTop: 14, padding: 14 }} onClick={() => setTab('new-reserva', todayStr())} disabled={pastCutoff}>
@@ -531,7 +554,7 @@ function CalendarView({ enriched, setTab }) {
 /* ══════════════════════════════════════════════════════════════
    NUEVA RESERVA
 ══════════════════════════════════════════════════════════════ */
-function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, infoModal, tabExtra }) {
+function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, infoModal, tabExtra, goBack }) {
   const fechaInicial = (tabExtra && /^\d{4}-\d{2}-\d{2}$/.test(tabExtra)) ? tabExtra : todayStr()
   const [fecha,   setFecha]   = useState(fechaInicial)
   const [nombre,  setNombre]  = useState('')
@@ -539,8 +562,11 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
   const [personas,setPersonas]= useState(2)
   const [valor,   setValor]   = useState('')
   const [abono,   setAbono]   = useState('')
+  const [nombreTocado, setNombreTocado] = useState(false)
 
   const puntoEncuentro = (config && config.puntoEncuentro) || ''
+  const phone = celular.replace(/\D/g, '')
+  const clienteExistente = phone ? clients.find(c => (c.celular || '').replace(/\D/g, '') === phone) : null
 
   const dayBusy = dayBooked(reservas, fecha)
   const overPax = toN(personas) < 1 || toN(personas) > MAX_PAX
@@ -551,6 +577,14 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
   const pastCutoff = isToday && now.getHours() >= HORA_CORTE_HOY
   const canSubmit = !dayBusy && !overPax && !pastCutoff
 
+  // Si el celular escrito coincide con un cliente existente y aún no
+  // tocaron el nombre, autocompletarlo (no se duplica el cliente).
+  useEffect(() => {
+    if (clienteExistente && !nombreTocado && !nombre) {
+      setNombre(clienteExistente.nombre || '')
+    }
+  }, [phone])
+
   const submit = async () => {
     if (dayBusy) { infoModal('El día ' + fmtDate(fecha) + ' ya está reservado.'); return }
     if (pastCutoff) { infoModal('Ya pasaron las ' + HORA_CORTE_HOY + ':00 a.m. No se puede reservar para hoy.'); return }
@@ -558,18 +592,14 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
     if (overPax) { infoModal('La cantidad de personas debe estar entre 1 y ' + MAX_PAX + '.'); return }
     if (toN(valor) <= 0) { infoModal('Indica un valor de reserva.'); return }
 
-    // Alta automática del cliente si el celular no existe
+    // El cliente se reutiliza si ya existe; si no, se da de alta.
     let nextClients = clients
-    const phone = celular.replace(/\D/g, '')
-    if (phone) {
-      const exists = clients.find(c => (c.celular || '').replace(/\D/g, '') === phone)
-      if (!exists) {
-        const newC = { id: uid(), nombre: capWords(nombre), celular: phone, createdAt: localNowISO() }
-        nextClients = [...clients, newC]
-        SC(nextClients)
-      }
+    if (phone && !clienteExistente) {
+      const newC = { id: uid(), nombre: capWords(nombre), celular: phone, createdAt: localNowISO() }
+      nextClients = [...clients, newC]
+      SC(nextClients)
     }
-    const matched = nextClients.find(c => (c.celular || '').replace(/\D/g, '') === phone)
+    const matched = clienteExistente || (phone ? nextClients.find(c => (c.celular || '').replace(/\D/g, '') === phone) : null)
 
     const newId = nextReservaId(reservas)
     const newReserva = {
@@ -614,7 +644,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
 
   return (
     <div>
-      <button onClick={() => setTab('calendar')} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
+      <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
       <h1 style={{ fontSize: 22, margin: '0 0 14px', fontFamily: 'Georgia,serif' }}>Nueva reserva</h1>
 
       <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
@@ -637,8 +667,13 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
 
       <div className="card" style={{ marginBottom: 12 }}>
         <label className="lbl">Cliente</label>
-        <input className="inp" placeholder="Nombre" value={nombre} onChange={e => setNombre(e.target.value)} style={{ marginBottom: 8 }} />
+        <input className="inp" placeholder="Nombre" value={nombre} onChange={e => { setNombre(e.target.value); setNombreTocado(true) }} style={{ marginBottom: 8 }} />
         <input className="inp" placeholder="Celular" inputMode="tel" value={celular} onChange={e => setCelular(e.target.value)} />
+        {clienteExistente
+          ? <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6 }}>✅ Cliente existente — datos autocompletados (no se duplicará)</div>
+          : (phone && phone.length >= 7 && !clienteExistente
+              ? <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Cliente nuevo, se dará de alta automáticamente</div>
+              : null)}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -668,7 +703,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
 /* ══════════════════════════════════════════════════════════════
    EDITAR RESERVA (ficha de operación)
 ══════════════════════════════════════════════════════════════ */
-function EditReserva({ enriched, reservas, payments, expenses, config, SR, deleteReserva, setTab, confirm, infoModal, tabExtra }) {
+function EditReserva({ enriched, reservas, payments, expenses, config, SR, deleteReserva, setTab, confirm, infoModal, tabExtra, goBack }) {
   const r = enriched.find(x => x.id === tabExtra)
   const [personas, setPersonas] = useState(r?.personas || 1)
   const [valor,    setValor]    = useState(String(r?.valor || 0))
@@ -716,7 +751,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, SR, delet
 
   return (
     <div>
-      <button onClick={() => setTab('reservas')} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
+      <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
       <h1 style={{ fontSize: 20, margin: '0 0 6px', fontFamily: 'Georgia,serif' }}>{r.id}</h1>
       <p style={{ color: 'var(--t2)', margin: '0 0 12px', fontSize: 14 }}>{r.clientName} · {fmtDate(r.fecha)}</p>
 
@@ -808,7 +843,7 @@ function Row({ label, val, bold }) {
 /* ══════════════════════════════════════════════════════════════
    REGISTRAR ABONO / PAGO
 ══════════════════════════════════════════════════════════════ */
-function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, tabExtra }) {
+function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, tabExtra, goBack, config }) {
   const r = enriched.find(x => x.id === tabExtra)
   const [monto, setMonto] = useState('')
   const [fecha, setFecha] = useState(todayStr())
@@ -817,9 +852,38 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
 
   if (!r) return <div className="card">Reserva no encontrada.</div>
 
+  // Mensaje que se le envía al cliente informándole del abono.
+  const buildAbonoMessage = (res, montoAbono, nuevoPagado, nuevoRestante, pe) => {
+    const WAVE = '\uD83C\uDF0A'
+    const CHECK = '\u2705'
+    const CAL = '\uD83D\uDCC5'
+    const CARD = '\uD83D\uDCB3'
+    const PIN = '\uD83D\uDCCD'
+    const lines = [
+      '¡Hola ' + res.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva:',
+      '',
+      CHECK + ' *Reserva:* ' + res.id,
+      CAL + ' *Fecha del recorrido:* ' + fmtDate(res.fecha),
+      CARD + ' *Recibimos un abono de:* ' + fmtPeso(montoAbono),
+      CARD + ' *Abonado en total:* ' + fmtPeso(nuevoPagado),
+      CARD + ' *Saldo restante:* ' + fmtPeso(nuevoRestante),
+    ]
+    if (nuevoRestante > 0) {
+      lines.push('', '⚠️ *Importante:* la reserva debe estar *totalmente pagada antes de iniciar el recorrido*. Por favor completa el saldo pendiente antes de la salida.')
+    } else {
+      lines.push('', '✅ ¡Tu reserva ya está *pagada en su totalidad*! Te esperamos.')
+    }
+    if (pe) lines.push(PIN + ' *Punto de encuentro:* ' + pe)
+    return lines.join('\n')
+  }
+
   const submit = async () => {
     const m = toN(monto)
     if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
+    if (m > r.totalRestante) {
+      infoModal('El abono de ' + fmtPeso(m) + ' supera el saldo pendiente de ' + fmtPeso(r.totalRestante) + '. Corrige el monto.')
+      return
+    }
     const newP = { id: uid(), reservaId: r.id, fecha, monto: m, metodo, nota }
     await SP([...payments, newP])
 
@@ -830,11 +894,12 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
     const pagadoFmt = fmtPeso(nuevoPagado)
     const restanteFmt = fmtPeso(nuevoRestante)
     const fechaFmt = fmtDate(r.fecha)
+    const pe = r.puntoEncuentro || (config && config.puntoEncuentro) || ''
 
     setModal({
       type: 'custom',
-      okLabel: 'Entendido',
-      cancelLabel: null,
+      okLabel: 'Volver a la reserva',
+      cancelLabel: r.clientPhone ? '📱 Enviar WhatsApp al cliente' : null,
       body: (
         <div>
           {completado ? (
@@ -877,18 +942,20 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
         </div>
       ),
       onOk: () => setTab('edit-reserva', r.id),
+      onCancel: r.clientPhone ? () => openWA(r.clientPhone, buildAbonoMessage(r, m, nuevoPagado, nuevoRestante, pe)) : undefined,
     })
   }
 
   return (
     <div>
-      <button onClick={() => setTab('edit-reserva', r.id)} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
+      <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
       <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>Registrar abono</h1>
       <p style={{ color: 'var(--t2)', margin: '0 0 14px' }}>{r.id} · {r.clientName} · Resta {fmtPeso(r.totalRestante)}</p>
 
       <div className="card" style={{ marginBottom: 12 }}>
         <label className="lbl">Monto</label>
-        <input type="number" className="inp" placeholder="0" value={monto} onChange={e => setMonto(e.target.value)} autoFocus />
+        <input type="number" min="0" max={r.totalRestante} step="any" className="inp" placeholder="0" value={monto} onChange={e => setMonto(e.target.value)} autoFocus />
+        <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(r.totalRestante)}</b> (saldo pendiente)</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
         <div className="card">
@@ -920,7 +987,7 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
 /* ══════════════════════════════════════════════════════════════
    FINALIZAR RESERVA + GASTOS
 ══════════════════════════════════════════════════════════════ */
-function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, infoModal, tabExtra }) {
+function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, infoModal, setModal, tabExtra, goBack }) {
   const r = enriched.find(x => x.id === tabExtra)
   const [tripulacion, setTrip] = useState('')
   const [admin,       setAdm]  = useState('')
@@ -931,9 +998,26 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
   if (!r) return <div className="card">Reserva no encontrada.</div>
 
   const totalGastos = toN(tripulacion) + toN(admin) + toN(combust) + toN(otros)
-  const resultado = r.valor - totalGastos
+  const resultado   = r.valor - totalGastos
+  // Bloquea escribir valores negativos desde el input mismo.
+  const onNum = setter => e => {
+    const v = e.target.value
+    if (v === '' || v === '-') { setter(''); return }
+    const n = Number(v)
+    if (isNaN(n)) return
+    setter(n < 0 ? '0' : String(n))
+  }
+  const negativos = ['Tripulación', 'Administración', 'Combustible', 'Otros']
+    .filter((cat, i) => {
+      const v = [tripulacion, admin, combust, otros][i]
+      return v !== '' && Number(v) < 0
+    })
 
   const submit = async () => {
+    if (negativos.length > 0) {
+      infoModal('No se permiten valores negativos. Revisa: ' + negativos.join(', '))
+      return
+    }
     const updated = { ...r, estadoOp: 'FINALIZADA', fechaFinalizacion: localNowISO() }
     delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
     await SR(reservations.map(x => x.id === r.id ? updated : x))
@@ -946,13 +1030,33 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
     if (toN(otros)       > 0) mk('Otros', otros)
     if (newExpenses.length > 0) await SE([...expenses, ...newExpenses])
 
-    infoModal('Reserva finalizada.')
+    setModal({
+      type: 'custom',
+      okLabel: 'Entendido',
+      cancelLabel: null,
+      body: (
+        <div>
+          <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>✅</div>
+          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10, color: 'var(--green)' }}>
+            ¡Reserva finalizada!
+          </div>
+          <p style={{ margin: '0 0 10px' }}>
+            La reserva <b>{r.id}</b> de <b>{r.clientName}</b> quedó como <b>FINALIZADA</b>.
+          </p>
+          <div className="card" style={{ background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
+            <Row label="Ingreso"      val={fmtPeso(r.totalPagado)} />
+            <Row label="Total gastos" val={'−' + fmtPeso(totalGastos)} />
+            <Row label="Resultado"    val={fmtPeso(resultado)} bold />
+          </div>
+        </div>
+      ),
+    })
     setTab('reservas')
   }
 
   return (
     <div>
-      <button onClick={() => setTab('edit-reserva', r.id)} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
+      <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
       <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>Finalizar reserva</h1>
       <p style={{ color: 'var(--t2)', margin: '0 0 14px' }}>{r.id} · {r.clientName}</p>
 
@@ -962,7 +1066,8 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
         {r.totalRestante > 0 && <div style={{ fontSize: 12, color: 'var(--orange)' }}>Resta sin cobrar: {fmtPeso(r.totalRestante)}</div>}
       </div>
 
-      <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>Gastos del viaje</h3>
+      <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>Gastos del recorrido</h3>
+      <p style={{ fontSize: 12, color: 'var(--t2)', margin: '0 0 10px' }}>Ingresa el valor de cada gasto. Déjalo en 0 si no aplica. No se permiten valores negativos.</p>
       {[
         ['Tripulación',    tripulacion, setTrip],
         ['Administración', admin,       setAdm],
@@ -971,13 +1076,13 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
       ].map(([label, val, setter]) => (
         <div key={label} className="card" style={{ marginBottom: 8 }}>
           <label className="lbl">{label}</label>
-          <input type="number" className="inp" placeholder="0" value={val} onChange={e => setter(e.target.value)} />
+          <input type="number" min="0" step="any" className="inp" placeholder="0" value={val} onChange={onNum(setter)} />
         </div>
       ))}
 
       <div className="card" style={{ marginBottom: 12 }}>
         <label className="lbl">Nota general</label>
-        <textarea className="inp" value={nota} onChange={e => setNota(e.target.value)} placeholder="Novedades del viaje…" />
+        <textarea className="inp" value={nota} onChange={e => setNota(e.target.value)} placeholder="Novedades del recorrido…" />
       </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
@@ -985,7 +1090,15 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
         <Row label="Resultado"     val={fmtPeso(resultado)} bold />
       </div>
 
-      <button className="btn-pri" style={{ width: '100%', padding: 14, fontSize: 15 }} onClick={submit}>Finalizar</button>
+      {negativos.length > 0 && (
+        <div style={{ background: 'var(--red-bg)', color: 'var(--red)', padding: 10, borderRadius: 10, marginBottom: 10, fontSize: 13 }}>
+          ⚠️ Hay valores negativos en: {negativos.join(', ')}. Corrígelos para continuar.
+        </div>
+      )}
+
+      <button className="btn-pri" style={{ width: '100%', padding: 14, fontSize: 15 }} onClick={submit} disabled={negativos.length > 0}>
+        Registrar gastos y finalizar
+      </button>
     </div>
   )
 }
@@ -1081,13 +1194,13 @@ function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
   )
 }
 
-function ClientHistory({ clients, enriched, setTab, tabExtra }) {
+function ClientHistory({ clients, enriched, setTab, tabExtra, goBack }) {
   const c = clients.find(x => x.id === tabExtra)
   if (!c) return <div className="card">Cliente no encontrado</div>
   const list = enriched.filter(r => r.clientId === c.id)
   return (
     <div>
-      <button onClick={() => setTab('clientes')} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
+      <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
       <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>{c.nombre}</h1>
       <p style={{ color: 'var(--t2)', margin: '0 0 14px' }}>{c.celular}</p>
       {list.length === 0 && <div className="card" style={{ textAlign: 'center', color: 'var(--t2)' }}>Sin reservas aún</div>}
