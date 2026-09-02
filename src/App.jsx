@@ -1607,12 +1607,15 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
 ══════════════════════════════════════════════════════════════ */
 function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, infoModal, setModal, tabExtra, goBack }) {
   const r = enriched.find(x => x.id === tabExtra)
-  // useRef sincronizado con la prop `reservations` en cada render. El
-  // `submit` lo lee para construir el array a guardar, garantizando que
-  // vea TODAS las reservas actuales (incluso las creadas hace instantes
-  // cuyo `setR` se reflejó en el state pero la prop del closure aún no).
+  // Leemos SIEMPRE la lista de reservas desde `localStorage` (que es lo
+  // último que el frontend guardó en Sheets) en el momento del submit.
+  // Esto evita depender del state de React, que puede estar desactualizado
+  // por el timing de los re-renders cuando se encadenan operaciones.
   const reservasRef = useRef(reservations)
   reservasRef.current = reservations
+  const leerReservasDeSheets = () => {
+    try { return JSON.parse(localStorage.getItem('pn_r') || '[]') || [] } catch { return [] }
+  }
   const [tripulacion, setTrip] = useState('')
   const [admin,       setAdm]  = useState('')
   const [combust,     setCom]  = useState('')
@@ -1644,10 +1647,10 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
     }
     try {
       // Usamos el `reservasRef.current` (sincronizado con la prop en cada
-      // render) en vez de la prop `reservations` capturada en el closure,
-      // para garantizar que veamos TODAS las reservas actuales, incluso las
-      // creadas hace instantes.
-      const reservasActuales = Array.isArray(reservasRef.current) ? reservasRef.current : []
+      // Leemos directamente de `localStorage` (que es lo último que el
+      // frontend guardó en Sheets). Esto evita depender del state de React,
+      // que puede estar desactualizado por el timing de los re-renders.
+      const reservasActuales = leerReservasDeSheets()
       const gastosActuales   = Array.isArray(expenses) ? expenses : []
       const updated = { ...r, estadoOp: 'FINALIZADA', fechaFinalizacion: localNowISO() }
       delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
