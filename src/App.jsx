@@ -140,12 +140,6 @@ const buildReservaMessage = (r, puntoEncuentro, contacto, nombreNegocio) => {
     lines.push('', '👤 *Te vas a encontrar con:*')
     if (contactoNombre) lines.push('• Nombre: ' + contactoNombre)
     if (contactoPhone)  lines.push(PHONE + ' Celular: ' + contactoPhone)
-    if (contactoPhone) {
-      const introMsg = 'Hola, mi nombre es ' + r.clientName + ', tengo una reserva para el ' + fmtDate(r.fecha) + ' a las ' + fmtTime(HORA_SALIDA) + ' (' + r.id + ').'
-      const link = 'https://wa.me/57' + contactoPhone + '?text=' + encodeURIComponent(introMsg)
-      lines.push('')
-      lines.push('👉 *Toca aquí para hablar con ' + contactoNombre + '*: ' + link)
-    }
   }
   if ((r.totalRestante || 0) > 0) {
     lines.push('', '⚠️ *Importante:* antes de iniciar el recorrido se debe pagar el valor total. Si no, el tour no puede iniciar.')
@@ -200,12 +194,6 @@ const buildAbonoMessage = (res, pagos, pe, contacto, nombreNegocio) => {
     lines.push('', '👤 *Te vas a encontrar con:*')
     if (contactoNombre) lines.push('• Nombre: ' + contactoNombre)
     if (contactoPhone)  lines.push(PHONE + ' Celular: ' + contactoPhone)
-    if (contactoPhone) {
-      const introMsg = 'Hola, mi nombre es ' + res.clientName + ', tengo una reserva para el ' + fmtDate(res.fecha) + ' a las ' + fmtTime(HORA_SALIDA) + ' (' + res.id + ').'
-      const link = 'https://wa.me/57' + contactoPhone + '?text=' + encodeURIComponent(introMsg)
-      lines.push('')
-      lines.push('👉 *Toca aquí para hablar con ' + contactoNombre + '*: ' + link)
-    }
   }
   if (resta > 0) {
     lines.push('', '⚠️ *Importante:* antes de iniciar el recorrido se debe pagar el valor total. Si no, el tour no puede iniciar.')
@@ -755,7 +743,7 @@ function Dashboard({ enriched, payments, expenses, config, setTab }) {
         marginBottom: 18, padding: 18,
         boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,0.5)',
       }}>
-        <div style={{ fontSize: 11, color: 'var(--t2)', fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase' }}>Resultado</div>
+        <div style={{ fontSize: 11, color: 'var(--t2)', fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase' }}>Neto</div>
         <div style={{ fontSize: 36, fontWeight: 800, color: saldo >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 6, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{fmtPeso(saldo)}</div>
         <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12.5, color: 'var(--t2)', flexWrap: 'wrap' }}>
           <span>Saldo inicial <b style={{ color: 'var(--t)' }}>{fmtPeso(config.saldoInicial)}</b></span>
@@ -1557,9 +1545,11 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
       return
     }
     try {
+      const reservasActuales = Array.isArray(reservations) ? reservations : []
+      const gastosActuales   = Array.isArray(expenses) ? expenses : []
       const updated = { ...r, estadoOp: 'FINALIZADA', fechaFinalizacion: localNowISO() }
       delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
-      await SR(reservations.map(x => x.id === r.id ? updated : x))
+      await SR(reservasActuales.map(x => x.id === r.id ? updated : x))
 
       const newExpenses = []
       const mk = (cat, monto) => newExpenses.push({ id: uid(), reservaId: r.id, fecha: todayStr(), categoria: cat, monto: toN(monto), nota })
@@ -1567,7 +1557,7 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
       if (toN(admin)       > 0) mk('Administración', admin)
       if (toN(combust)     > 0) mk('Combustible', combust)
       if (toN(otros)       > 0) mk('Otros', otros)
-      if (newExpenses.length > 0) await SE([...expenses, ...newExpenses])
+      if (newExpenses.length > 0) await SE([...gastosActuales, ...newExpenses])
 
       setModal({
         type: 'custom',
@@ -1585,7 +1575,7 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
             <div className="card" style={{ background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
               <Row label="Ingreso"      val={fmtPeso(r.totalPagado)} />
               <Row label="Total gastos" val={'−' + fmtPeso(totalGastos)} />
-              <Row label="Resultado"    val={fmtPeso(resultado)} bold />
+              <Row label="Neto"         val={fmtPeso(resultado)} bold />
             </div>
             {newExpenses.length > 0 && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 8 }}>Se registraron {newExpenses.length} gasto(s) del recorrido.</div>}
           </div>
@@ -1630,7 +1620,7 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
 
       <div className="card" style={{ marginBottom: 14 }}>
         <Row label="Total gastos"  val={'−' + fmtPeso(totalGastos)} />
-        <Row label="Resultado"     val={fmtPeso(resultado)} bold />
+        <Row label="Neto"          val={fmtPeso(resultado)} bold />
       </div>
 
       {negativos.length > 0 && (
@@ -1741,7 +1731,7 @@ function ListaFiltrada({ enriched, setTab, goBack, filter, titulo, emoji, emptyM
 /* ══════════════════════════════════════════════════════════════
    CLIENTES
 ══════════════════════════════════════════════════════════════ */
-function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
+function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, infoModal }) {
   const [q, setQ] = useState('')
   const [showNew, setShowNew] = useState(false)
   const [nNombre, setNNombre] = useState('')
@@ -1764,14 +1754,24 @@ function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
   const guardarEdicion = async () => {
     if (!eNombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
     const newPhone = eCelular.replace(/\D/g, '')
+    const newNombre = capWords(eNombre)
     const editingC = clients.find(c => c.id === editing)
     const oldPhone = (editingC && editingC.celular || '').replace(/\D/g, '')
     if (newPhone && newPhone !== oldPhone && clients.some(c => c.id !== editing && (c.celular || '').replace(/\D/g, '') === newPhone)) {
       infoModal('Ya existe otro cliente con ese celular.'); return
     }
-    await SC(clients.map(c => c.id === editing
-      ? { ...c, nombre: capWords(eNombre), celular: newPhone }
-      : c))
+    // Propagar nombre y celular actualizados a todas las reservas que
+    // referencian a este cliente, para que el cambio se vea reflejado.
+    const nextClients = clients.map(c => c.id === editing
+      ? { ...c, nombre: newNombre, celular: newPhone }
+      : c)
+    await SC(nextClients)
+    if (Array.isArray(reservas) && reservas.length > 0) {
+      const nextReservas = reservas.map(r => r.clientId === editing
+        ? { ...r, clientName: newNombre, clientPhone: newPhone }
+        : r)
+      await SR(nextReservas)
+    }
     closeEdit()
   }
 
@@ -1961,6 +1961,14 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
   const [ingMetodo, setIngMetodo] = useState('Transferencia')
   const [ingNota, setIngNota] = useState('')
 
+  // Filtros de finanzas
+  const [mes,        setMes]        = useState(monthStr())
+  const [dia,        setDia]        = useState(todayStr())
+  const [rangoDesde, setRangoDesde] = useState(() => {
+    const d = new Date(); d.setDate(1); return localDateStr(d)
+  })
+  const [rangoHasta, setRangoHasta] = useState(todayStr())
+
   const closeIng = () => {
     setShowNewIng(false); setIngReservaId(''); setIngMonto(''); setIngFecha(todayStr()); setIngMetodo('Transferencia'); setIngNota('')
   }
@@ -1990,14 +1998,28 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
   const totalGas = (Array.isArray(expenses) ? expenses : []).reduce((s, e) => s + toN(e.monto), 0)
   const saldo    = toN(config.saldoInicial) + totalIng - totalGas
 
-  const [mes, setMes] = useState(monthStr())
   const inMonth = f => {
     const d = cleanDate(f)
     if (!d) return false
     return monthStr(new Date(d + 'T12:00:00')) === mes
   }
-  const ingMes = (Array.isArray(payments) ? payments : []).filter(p => inMonth(p.fecha)).reduce((s, p) => s + toN(p.monto), 0)
-  const gasMes = (Array.isArray(expenses) ? expenses : []).filter(e => inMonth(e.fecha)).reduce((s, e) => s + toN(e.monto), 0)
+  const onDay = (f, target) => {
+    const d = cleanDate(f)
+    return d === target
+  }
+  const inRange = (f, from, to) => {
+    const d = cleanDate(f)
+    if (!d) return false
+    if (from && d < from) return false
+    if (to && d > to) return false
+    return true
+  }
+  const ingMes   = (Array.isArray(payments) ? payments : []).filter(p => inMonth(p.fecha)).reduce((s, p) => s + toN(p.monto), 0)
+  const gasMes   = (Array.isArray(expenses) ? expenses : []).filter(e => inMonth(e.fecha)).reduce((s, e) => s + toN(e.monto), 0)
+  const ingDia   = (Array.isArray(payments) ? payments : []).filter(p => onDay(p.fecha, dia)).reduce((s, p) => s + toN(p.monto), 0)
+  const gasDia   = (Array.isArray(expenses) ? expenses : []).filter(e => onDay(e.fecha, dia)).reduce((s, e) => s + toN(e.monto), 0)
+  const ingRango = (Array.isArray(payments) ? payments : []).filter(p => inRange(p.fecha, rangoDesde, rangoHasta)).reduce((s, p) => s + toN(p.monto), 0)
+  const gasRango = (Array.isArray(expenses) ? expenses : []).filter(e => inRange(e.fecha, rangoDesde, rangoHasta)).reduce((s, e) => s + toN(e.monto), 0)
 
   const ingList = (Array.isArray(payments) ? payments : []).slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
   const gasList = (Array.isArray(expenses) ? expenses : []).slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
@@ -2013,7 +2035,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
       </div>
 
       <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
-        <div style={{ fontSize: 12, color: 'var(--t2)', letterSpacing: '.04em', textTransform: 'uppercase' }}>Resultado</div>
+        <div style={{ fontSize: 12, color: 'var(--t2)', letterSpacing: '.04em', textTransform: 'uppercase' }}>Neto</div>
         <div style={{ fontSize: 28, fontWeight: 700, color: saldo >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 4 }}>{fmtPeso(saldo)}</div>
         <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 12, color: 'var(--t2)', flexWrap: 'wrap' }}>
           <span>Saldo inicial: <b style={{ color: 'var(--t)' }}>{fmtPeso(config.saldoInicial)}</b></span>
@@ -2023,13 +2045,38 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <h3 style={{ margin: 0, fontSize: 14 }}>Por mes</h3>
-          <input type="month" className="inp" value={mes} onChange={e => setMes(e.target.value)} style={{ maxWidth: 170 }} />
+        <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Filtros</h3>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <label className="lbl" style={{ margin: 0 }}>Por mes</label>
+            <input type="month" className="inp" value={mes} onChange={e => setMes(e.target.value)} style={{ maxWidth: 170 }} />
+          </div>
+          <Row label="Ingresos" val={'+' + fmtPeso(ingMes)} />
+          <Row label="Gastos"   val={'−' + fmtPeso(gasMes)} />
+          <Row label="Neto del mes" val={fmtPeso(ingMes - gasMes)} bold />
         </div>
-        <Row label="Ingresos" val={'+' + fmtPeso(ingMes)} />
-        <Row label="Gastos"   val={'−' + fmtPeso(gasMes)} />
-        <Row label="Resultado del mes" val={fmtPeso(ingMes - gasMes)} bold />
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <label className="lbl" style={{ margin: 0 }}>Por día</label>
+            <input type="date" className="inp" value={dia} onChange={e => setDia(e.target.value)} style={{ maxWidth: 170 }} />
+          </div>
+          <Row label="Ingresos" val={'+' + fmtPeso(ingDia)} />
+          <Row label="Gastos"   val={'−' + fmtPeso(gasDia)} />
+          <Row label="Neto del día" val={fmtPeso(ingDia - gasDia)} bold />
+        </div>
+
+        <div>
+          <label className="lbl">Por rango</label>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+            <input type="date" className="inp" value={rangoDesde} onChange={e => setRangoDesde(e.target.value)} style={{ flex: 1 }} />
+            <input type="date" className="inp" value={rangoHasta} onChange={e => setRangoHasta(e.target.value)} style={{ flex: 1 }} />
+          </div>
+          <Row label="Ingresos" val={'+' + fmtPeso(ingRango)} />
+          <Row label="Gastos"   val={'−' + fmtPeso(gasRango)} />
+          <Row label="Neto del rango" val={fmtPeso(ingRango - gasRango)} bold />
+        </div>
       </div>
 
       <details open className="card" style={{ marginBottom: 12 }}>
