@@ -65,16 +65,28 @@ function doPost(e) {
 
     if (b.config       !== undefined) writeConfig(ss, b.config);
     if (b.clients      !== undefined) writeSheet(ss, 'clients', b.clients);
-    if (b.payments     !== undefined) writeSheet(ss, 'payments', b.payments);
-    if (b.expenses     !== undefined) writeSheet(ss, 'expenses', b.expenses);
 
-    let calResult = null;
+    // Defensa en profundidad: si el frontend manda reservas, aprovechamos
+    // para borrar en cascada cualquier pago o gasto huérfano (de una reserva
+    // eliminada) que haya quedado en Sheets.
     if (b.reservations !== undefined) {
       // Regla de negocio: un solo pontón → una sola reserva por día.
       const check = validateReservations(b.reservations);
       if (!check.ok) { lock.releaseLock(); return err(check.error); }
       writeSheet(ss, 'reservations', b.reservations);
     }
+    if (b.payments !== undefined) {
+      const idsValidos = new Set((b.reservations || []).map(r => r.id));
+      const limpios = b.payments.filter(p => idsValidos.has(p.reservaId));
+      writeSheet(ss, 'payments', limpios);
+    }
+    if (b.expenses !== undefined) {
+      const idsValidos = new Set((b.reservations || []).map(r => r.id));
+      const limpios = b.expenses.filter(e => idsValidos.has(e.reservaId));
+      writeSheet(ss, 'expenses', limpios);
+    }
+
+    let calResult = null;
     if (b.calendarEvent) calResult = createCalEvent(b.calendarEvent);
 
     lock.releaseLock();
@@ -308,7 +320,14 @@ function initSheets(ss) {
 function readConfig(ss) {
   const sh = ss.getSheetByName(SHEETS.config);
   const last = sh.getLastRow();
-  const map = { saldoInicial: '0', puntoEncuentro: '', contactoNombre: '', contactoCelular: '', negocioNombre: '' };
+  const map = {
+    saldoInicial: '0',
+    puntoEncuentro: '',
+    contactoNombre: '',
+    contactoCelular: '',
+    negocioNombre: '',
+    contadorReservas: '0',
+  };
   if (last >= 2) {
     sh.getRange(2, 1, last - 1, 2).getValues().forEach(r => {
       if (r[0]) map[String(r[0]).trim()] = String(r[1]);
@@ -322,12 +341,15 @@ function writeConfig(ss, cfg) {
   // Saneo: nunca persistir saldoInicial negativo.
   const saldoNum = Number(cfg.saldoInicial);
   const saldo = isNaN(saldoNum) || saldoNum < 0 ? '0' : String(saldoNum);
+  const contadorNum = Number(cfg.contadorReservas);
+  const contador = isNaN(contadorNum) || contadorNum < 0 ? '0' : String(Math.floor(contadorNum));
   const rows = [
     ['saldoInicial',      saldo],
     ['puntoEncuentro',    cfg.puntoEncuentro !== undefined && cfg.puntoEncuentro !== null ? String(cfg.puntoEncuentro) : ''],
     ['contactoNombre',    cfg.contactoNombre !== undefined && cfg.contactoNombre !== null ? String(cfg.contactoNombre) : ''],
     ['contactoCelular',   cfg.contactoCelular !== undefined && cfg.contactoCelular !== null ? String(cfg.contactoCelular) : ''],
     ['negocioNombre',     cfg.negocioNombre !== undefined && cfg.negocioNombre !== null ? String(cfg.negocioNombre) : ''],
+    ['contadorReservas',  contador],
   ];
   sh.clearContents();
   sh.getRange(1, 1, 1, 2).setValues([['Clave', 'Valor']]);

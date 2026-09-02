@@ -177,9 +177,13 @@ export const monthCells = (year, month) => {
   return cells;
 };
 
-// Genera el siguiente correlativo de reserva: RES-000125
-export const nextReservaId = reservas => {
-  let max = 0;
+// Genera el siguiente correlativo de reserva: RES-000125.
+// Acepta un contador persistido (contadorReservas de Config) que tiene
+// prioridad sobre el máximo de los IDs existentes, para que al eliminar
+// una reserva no se reasigne su número.
+export const nextReservaId = (reservas, contadorPersistido) => {
+  const persistido = Number(contadorPersistido) || 0;
+  let max = persistido;
   (Array.isArray(reservas) ? reservas : []).forEach(r => {
     const m = String(r.id || '').match(/RES-(\d+)/);
     if (m) max = Math.max(max, Number(m[1]));

@@ -257,11 +257,26 @@ export default function App() {
     if (!import.meta.env.VITE_SCRIPT_URL) { setSt('noconfig'); return }
     if (!silent) setSt('loading')
     loadData().then(d => {
-      setConfig(d.config || { saldoInicial: '0', puntoEncuentro: '' })
-      setC(Array.isArray(d.clients) ? d.clients : [])
-      setR(Array.isArray(d.reservations) ? d.reservations : [])
-      setP(Array.isArray(d.payments) ? d.payments : [])
-      setE(Array.isArray(d.expenses) ? d.expenses : [])
+      const cfg = d.config || { saldoInicial: '0', puntoEncuentro: '' }
+      const cls = Array.isArray(d.clients) ? d.clients : []
+      const rsv = Array.isArray(d.reservations) ? d.reservations : []
+      const pay = Array.isArray(d.payments) ? d.payments : []
+      const exp = Array.isArray(d.expenses) ? d.expenses : []
+      setConfig(cfg)
+      setC(cls)
+      setR(rsv)
+      // Limpieza defensiva: si un pago o gasto quedó huérfano de una
+      // reserva eliminada (p.ej. porque el cascade falló o la app se cerró
+      // a mitad de operación), lo descartamos y lo persistimos.
+      const idsValidos = new Set(rsv.map(r => r.id))
+      const payLimpio = pay.filter(p => idsValidos.has(p.reservaId))
+      const expLimpio = exp.filter(e => idsValidos.has(e.reservaId))
+      setP(payLimpio)
+      setE(expLimpio)
+      // Si se descartaron huérfanos, persistimos la limpieza en Sheets.
+      if (payLimpio.length !== pay.length || expLimpio.length !== exp.length) {
+        saveData({ payments: payLimpio, expenses: expLimpio }).catch(() => {})
+      }
       setSt('ok'); setLS(new Date())
     }).catch(e => {
       setEM(e.message); setSt('error')
@@ -962,7 +977,7 @@ function CalendarView({ enriched, setTab }) {
 /* ══════════════════════════════════════════════════════════════
    NUEVA RESERVA
 ══════════════════════════════════════════════════════════════ */
-function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, infoModal, tabExtra, goBack }) {
+function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, setTab, infoModal, tabExtra, goBack }) {
   const fechaInicial = (tabExtra && /^\d{4}-\d{2}-\d{2}$/.test(tabExtra)) ? tabExtra : todayStr()
   const [fecha,   setFecha]   = useState(fechaInicial)
   const [nombre,  setNombre]  = useState('')
@@ -987,11 +1002,16 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
 
   // Si el celular escrito coincide con un cliente existente y aún no
   // tocaron el nombre, autocompletarlo (no se duplica el cliente).
+  // Solo se autocompleta cuando el cliente encontrado CAMBIA (no en cada
+  // tecleo), para no pisar lo que el usuario escribió a mano.
   useEffect(() => {
-    if (clienteExistente && !nombreTocado && !nombre) {
+    if (clienteExistente && !nombreTocado) {
       setNombre(clienteExistente.nombre || '')
     }
-  }, [phone])
+    // Si el celular está vacío o no coincide con nadie, limpiamos el flag
+    // para que un celular posterior pueda autocompletar de nuevo.
+    if (!clienteExistente) setNombreTocado(false)
+  }, [clienteExistente ? clienteExistente.id : 'none', phone])
 
   const submit = async () => {
     if (dayBusy) { infoModal('El día ' + fmtDate(fecha) + ' ya está reservado.'); return }
@@ -1009,7 +1029,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
     }
     const matched = clienteExistente || (phone ? nextClients.find(c => (c.celular || '').replace(/\D/g, '') === phone) : null)
 
-    const newId = nextReservaId(reservas)
+    const newId = nextReservaId(reservas, (config && config.contadorReservas) || 0)
     const newReserva = {
       id: newId,
       fecha, hora: HORA_SALIDA,
@@ -1036,6 +1056,13 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
     }
     await SR(nextR)
     if (toN(abono) > 0) await SP(nextP)
+    // Persistir el nuevo correlativo en Config para que no se reasigne
+    // al eliminar una reserva anterior con el mismo número.
+    const contadorActual = Number((config && config.contadorReservas) || 0)
+    const numNuevo = Number(String(newId).match(/RES-(\d+)/) && String(newId).match(/RES-(\d+)/)[1]) || (contadorActual + 1)
+    if (numNuevo > contadorActual) {
+      SCfg({ ...(config || {}), contadorReservas: String(numNuevo) })
+    }
     // Sincronizar Calendar en background
     saveData({ calendarEvent: newReserva }).then(r => {
       if (r && r.calResult && r.calResult.ok && r.calResult.eventId) {
