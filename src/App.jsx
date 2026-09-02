@@ -144,7 +144,7 @@ const buildReservaMessage = (r, puntoEncuentro, contacto, nombreNegocio) => {
   if ((r.totalRestante || 0) > 0) {
     lines.push('', '⚠️ *Importante:* antes de iniciar el recorrido se debe pagar el valor total. Si no, el tour no puede iniciar.')
   } else {
-    lines.push('', CHECK + ' ¡Tu reserva ya está *pagada en su totalidad*! Te esperamos.')
+    lines.push('', CHECK + ' ¡Tu reserva ya está *pagada en su totalidad*!')
   }
   lines.push('', '¡Te esperamos! ' + WAVE)
   return lines.join('\n')
@@ -198,7 +198,7 @@ const buildAbonoMessage = (res, pagos, pe, contacto, nombreNegocio) => {
   if (resta > 0) {
     lines.push('', '⚠️ *Importante:* antes de iniciar el recorrido se debe pagar el valor total. Si no, el tour no puede iniciar.')
   } else {
-    lines.push('', CHECK + ' ¡Tu reserva ya está *pagada en su totalidad*! Te esperamos.')
+    lines.push('', CHECK + ' ¡Tu reserva ya está *pagada en su totalidad*!')
   }
   lines.push('', '¡Te esperamos! ' + WAVE)
   return lines.join('\n')
@@ -1436,7 +1436,11 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
       return
     }
     const newP = { id: uid(), reservaId: r.id, fecha, monto: m, metodo, nota }
-    await SP([...payments, newP])
+    // Construimos la lista de pagos actualizada INCLUYENDO el nuevo pago.
+    // Esto es lo que pasamos al WhatsApp para que el mensaje refleje el
+    // estado real, no los totales viejos que se calcularon antes del sync.
+    const pagosActualizados = [...payments, newP]
+    await SP(pagosActualizados)
 
     const nuevoPagado = r.totalPagado + m
     const nuevoRestante = Math.max(0, r.valor - nuevoPagado)
@@ -1494,11 +1498,15 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
       ),
       onOk: () => setTab('edit-reserva', r.id),
       onCancel: r.clientPhone ? () => {
-        // `payments` ya incluye el pago recién creado/editado (lo persistimos
-        // con SP antes de mostrar este modal). Lo usamos directamente.
+        // Usamos la lista ya calculada `pagosActualizados` para que el
+        // mensaje refleje el estado real (incluyendo el nuevo pago).
+        const listaParaMensaje = editando
+          ? (Array.isArray(payments) ? payments : [])
+          : pagosActualizados
         openWA(r.clientPhone, buildAbonoMessage(
-          r, payments, pe,
-          { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+          r, listaParaMensaje, pe,
+          { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' },
+          (config && config.negocioNombre) || ''
         ))
       } : undefined,
     })
