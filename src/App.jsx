@@ -353,14 +353,17 @@ export default function App() {
   }, [enriched, status])
 
   const sync = useCallback(async (payload) => {
-    const km = { clients: 'pn_c', reservations: 'pn_r', payments: 'pn_p', expenses: 'pn_e', config: 'pn_cfg' }
-    Object.entries(payload).forEach(([k, v]) => {
-      if (km[k]) try { localStorage.setItem(km[k], JSON.stringify(v)) } catch {}
-    })
     setSt('saving')
     savingRef.current = true
     try {
       const r = await saveData(payload)
+      // Solo si el backend confirmó el guardado, persistimos en localStorage
+      // y refrescamos. Si la operación falla, dejamos el state local intacto
+      // para que el próximo polling lo sincronice con Sheets.
+      const km = { clients: 'pn_c', reservations: 'pn_r', payments: 'pn_p', expenses: 'pn_e', config: 'pn_cfg' }
+      Object.entries(payload).forEach(([k, v]) => {
+        if (km[k]) try { localStorage.setItem(km[k], JSON.stringify(v)) } catch {}
+      })
       setSt('ok'); setLS(new Date())
       savingRef.current = false
       setTimeout(() => refresh(true), 1500)

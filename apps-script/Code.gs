@@ -90,8 +90,16 @@ function validateReservations(rows) {
     if (ids[r.id]) return { ok: false, error: 'ID de reserva duplicado' };
     ids[r.id] = true;
     if (!r.fecha) return { ok: false, error: 'La reserva ' + r.id + ' no tiene fecha' };
-    if (dates[r.fecha]) return { ok: false, error: 'El día ' + r.fecha + ' ya está reservado' };
-    dates[r.fecha] = true;
+    // Solo cuentan para el conflicto de día las reservas que siguen activas
+    // (PENDIENTE / CONFIRMADA / EN_CURSO). Las FINALIZADAS y CANCELADAS no
+    // ocupan el día, así que permitir que se guarde una nueva reserva activa
+    // en esa misma fecha (después de un día finalizado, por ejemplo).
+    const estado = String(r.estadoOp || '').toUpperCase();
+    const estaActiva = estado !== 'FINALIZADA' && estado !== 'CANCELADA';
+    if (estaActiva) {
+      if (dates[r.fecha]) return { ok: false, error: 'El día ' + r.fecha + ' ya está reservado' };
+      dates[r.fecha] = true;
+    }
     const pax = Number(r.personas) || 0;
     if (pax < 1 || pax > 12) return { ok: false, error: 'La reserva ' + r.id + ' supera las 12 personas' };
   }
