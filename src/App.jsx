@@ -110,7 +110,7 @@ const openWA = (phone, text) => {
 }
 
 // Mensaje de WhatsApp al cliente cuando se crea una reserva.
-const buildReservaMessage = (r, puntoEncuentro, contacto) => {
+const buildReservaMessage = (r, puntoEncuentro, contacto, nombreNegocio) => {
   const WAVE = '\uD83C\uDF0A'
   const CHECK = '\u2705'
   const CAL = '\uD83D\uDCC5'
@@ -125,7 +125,7 @@ const buildReservaMessage = (r, puntoEncuentro, contacto) => {
   const contactoPhone = String(c.celular || '').replace(/\D/g, '')
 
   const lines = [
-    '¡Hola ' + r.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva en el pontón ' + BIZ_NAME_FANCY + ':',
+    '¡Hola ' + r.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva en el pontón ' + toFancyScript(nombreNegocio || BIZ_NAME) + ':',
     '',
     CHECK + ' *Reserva:* ' + r.id,
     CAL + ' *Fecha del recorrido:* ' + fmtDate(r.fecha),
@@ -160,7 +160,7 @@ const buildReservaMessage = (r, puntoEncuentro, contacto) => {
 /* ══════════════════════════════════════════════════════════════
    MENSAJES DE WHATSAPP (helpers globales)
 ══════════════════════════════════════════════════════════════ */
-const buildAbonoMessage = (res, pagos, pe, contacto) => {
+const buildAbonoMessage = (res, pagos, pe, contacto, nombreNegocio) => {
   const WAVE = '\uD83C\uDF0A'
   const CHECK = '\u2705'
   const CAL = '\uD83D\uDCC5'
@@ -177,7 +177,7 @@ const buildAbonoMessage = (res, pagos, pe, contacto) => {
   const isFirst = (i) => i === 0
   const totalCount = lista.length
   const lines = [
-    '¡Hola ' + res.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva en el pontón ' + BIZ_NAME_FANCY + ':',
+    '¡Hola ' + res.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva en el pontón ' + toFancyScript(nombreNegocio || BIZ_NAME) + ':',
     '',
     CHECK + ' *Reserva:* ' + res.id,
     CAL + ' *Fecha del recorrido:* ' + fmtDate(res.fecha),
@@ -187,7 +187,7 @@ const buildAbonoMessage = (res, pagos, pe, contacto) => {
     if (isFirst(i)) {
       lines.push(CARD + ' *Recibimos un abono inicial el día* ' + fmtDate(p.fecha) + ': ' + fmtPeso(p.monto))
     } else {
-      lines.push(CARD + ' *Recibimos un abono de el día* ' + fmtDate(p.fecha) + ': ' + fmtPeso(p.monto))
+      lines.push(CARD + ' *Recibimos un abono el día* ' + fmtDate(p.fecha) + ': ' + fmtPeso(p.monto))
     }
   })
   if (totalCount === 0) {
@@ -348,7 +348,8 @@ export default function App() {
               r,
               (Array.isArray(payments) ? payments : []).filter(p => String(p.reservaId) === String(r.id)),
               r.puntoEncuentro || (config && config.puntoEncuentro) || '',
-              { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+              { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' },
+              (config && config.negocioNombre) || ''
             )}
           </div>
         </div>
@@ -357,7 +358,8 @@ export default function App() {
         r,
         (Array.isArray(payments) ? payments : []).filter(p => String(p.reservaId) === String(r.id)),
         r.puntoEncuentro || (config && config.puntoEncuentro) || '',
-        { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+        { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' },
+        (config && config.negocioNombre) || ''
       )) : undefined,
     })
   }, [enriched, status])
@@ -1055,7 +1057,8 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
     openWA(phone, buildReservaMessage(
       enrichedPreview,
       puntoEncuentro,
-      { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+      { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' },
+      (config && config.negocioNombre) || ''
     ))
 
     setTab('reservas')
@@ -1219,7 +1222,8 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
   const reWA = () => openWA(r.clientPhone, buildReservaMessage(
     { ...r, totalPagado: r.totalPagado, totalRestante: r.totalRestante },
     pe,
-    { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+    { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' },
+    (config && config.negocioNombre) || ''
   ))
 
   const cancelar = () => {
@@ -1470,13 +1474,10 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
       ),
       onOk: () => setTab('edit-reserva', r.id),
       onCancel: r.clientPhone ? () => {
-        // Lista de abonos actualizada: si estamos editando, payments ya incluye
-        // el pago con el patch. Si estamos creando, hay que agregarle newP.
-        const pagosParaMensaje = editando
-          ? payments
-          : [...payments, newP]
+        // `payments` ya incluye el pago recién creado/editado (lo persistimos
+        // con SP antes de mostrar este modal). Lo usamos directamente.
         openWA(r.clientPhone, buildAbonoMessage(
-          r, pagosParaMensaje, pe,
+          r, payments, pe,
           { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
         ))
       } : undefined,
@@ -2159,6 +2160,7 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
   const [pe,       setPe]       = useState(config.puntoEncuentro || '')
   const [cNombre,  setCNombre]  = useState(config.contactoNombre || '')
   const [cCelular, setCCelular] = useState(config.contactoCelular || '')
+  const [nNombre,  setNNombre]  = useState(config.negocioNombre || '')
   const [showReset, setShowReset] = useState(false)
   const [confirmText, setConfirmText] = useState('')
 
@@ -2167,7 +2169,8 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
     setPe(config.puntoEncuentro || '')
     setCNombre(config.contactoNombre || '')
     setCCelular(config.contactoCelular || '')
-  }, [config.saldoInicial, config.puntoEncuentro, config.contactoNombre, config.contactoCelular])
+    setNNombre(config.negocioNombre || '')
+  }, [config.saldoInicial, config.puntoEncuentro, config.contactoNombre, config.contactoCelular, config.negocioNombre])
 
   const save = async () => {
     const num = toN(saldo)
@@ -2182,6 +2185,7 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
       puntoEncuentro: pe,
       contactoNombre: capWords(cNombre),
       contactoCelular: phone,
+      negocioNombre: capWords(nNombre),
     })
   }
 
@@ -2200,6 +2204,8 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
 
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Negocio</h3>
+        <label className="lbl">Nombre del negocio (aparece en los mensajes de WhatsApp)</label>
+        <input className="inp" value={nNombre} onChange={e => setNNombre(e.target.value)} placeholder="La Luz de Emi 2" style={{ marginBottom: 8 }} />
         <label className="lbl">Saldo inicial (dinero ya ahorrado)</label>
         <input
           type="number" min="0" step="any" className="inp"

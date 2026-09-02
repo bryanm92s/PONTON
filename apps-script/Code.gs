@@ -300,7 +300,7 @@ function initSheets(ss) {
 function readConfig(ss) {
   const sh = ss.getSheetByName(SHEETS.config);
   const last = sh.getLastRow();
-  const map = { saldoInicial: '0', puntoEncuentro: '', contactoNombre: '', contactoCelular: '' };
+  const map = { saldoInicial: '0', puntoEncuentro: '', contactoNombre: '', contactoCelular: '', negocioNombre: '' };
   if (last >= 2) {
     sh.getRange(2, 1, last - 1, 2).getValues().forEach(r => {
       if (r[0]) map[String(r[0]).trim()] = String(r[1]);
@@ -319,6 +319,7 @@ function writeConfig(ss, cfg) {
     ['puntoEncuentro',    cfg.puntoEncuentro !== undefined && cfg.puntoEncuentro !== null ? String(cfg.puntoEncuentro) : ''],
     ['contactoNombre',    cfg.contactoNombre !== undefined && cfg.contactoNombre !== null ? String(cfg.contactoNombre) : ''],
     ['contactoCelular',   cfg.contactoCelular !== undefined && cfg.contactoCelular !== null ? String(cfg.contactoCelular) : ''],
+    ['negocioNombre',     cfg.negocioNombre !== undefined && cfg.negocioNombre !== null ? String(cfg.negocioNombre) : ''],
   ];
   sh.clearContents();
   sh.getRange(1, 1, 1, 2).setValues([['Clave', 'Valor']]);
