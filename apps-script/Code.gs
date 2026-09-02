@@ -300,7 +300,7 @@ function initSheets(ss) {
 function readConfig(ss) {
   const sh = ss.getSheetByName(SHEETS.config);
   const last = sh.getLastRow();
-  const map = { saldoInicial: '0', puntoEncuentro: '' };
+  const map = { saldoInicial: '0', puntoEncuentro: '', contactoNombre: '', contactoCelular: '' };
   if (last >= 2) {
     sh.getRange(2, 1, last - 1, 2).getValues().forEach(r => {
       if (r[0]) map[String(r[0]).trim()] = String(r[1]);
@@ -311,9 +311,14 @@ function readConfig(ss) {
 
 function writeConfig(ss, cfg) {
   const sh = ss.getSheetByName(SHEETS.config);
+  // Saneo: nunca persistir saldoInicial negativo.
+  const saldoNum = Number(cfg.saldoInicial);
+  const saldo = isNaN(saldoNum) || saldoNum < 0 ? '0' : String(saldoNum);
   const rows = [
-    ['saldoInicial', cfg.saldoInicial !== undefined && cfg.saldoInicial !== null ? String(cfg.saldoInicial) : '0'],
-    ['puntoEncuentro', cfg.puntoEncuentro !== undefined && cfg.puntoEncuentro !== null ? String(cfg.puntoEncuentro) : ''],
+    ['saldoInicial',      saldo],
+    ['puntoEncuentro',    cfg.puntoEncuentro !== undefined && cfg.puntoEncuentro !== null ? String(cfg.puntoEncuentro) : ''],
+    ['contactoNombre',    cfg.contactoNombre !== undefined && cfg.contactoNombre !== null ? String(cfg.contactoNombre) : ''],
+    ['contactoCelular',   cfg.contactoCelular !== undefined && cfg.contactoCelular !== null ? String(cfg.contactoCelular) : ''],
   ];
   sh.clearContents();
   sh.getRange(1, 1, 1, 2).setValues([['Clave', 'Valor']]);

@@ -98,7 +98,7 @@ const openWA = (phone, text) => {
 }
 
 // Mensaje de WhatsApp al cliente cuando se crea una reserva.
-const buildReservaMessage = (r, puntoEncuentro) => {
+const buildReservaMessage = (r, puntoEncuentro, contacto) => {
   const WAVE = '\uD83C\uDF0A'
   const CHECK = '\u2705'
   const CAL = '\uD83D\uDCC5'
@@ -106,7 +106,9 @@ const buildReservaMessage = (r, puntoEncuentro) => {
   const PEOPLE = '\uD83D\uDC65'
   const CARD = '\uD83D\uDCB3'
   const PIN = '\uD83D\uDCCD'
+  const PHONE = '\uD83D\uDCF1'
   const pe = puntoEncuentro || r.puntoEncuentro || ''
+  const c = contacto || {}
   const lines = [
     '¡Hola ' + r.clientName + '! ' + WAVE + ' Tu reserva en el pontón quedó creada:',
     '',
@@ -118,7 +120,12 @@ const buildReservaMessage = (r, puntoEncuentro) => {
     CARD + ' *Abono:* ' + fmtPeso(r.totalPagado || 0),
     CARD + ' *Resta:* ' + fmtPeso(r.totalRestante || 0),
   ]
-  if (pe) lines.push(PIN + ' *Punto de encuentro:* ' + pe)
+  if (pe) lines.push(PIN + ' *Punto de encuentro (muelle):* ' + pe)
+  if (c && (c.nombre || c.celular)) {
+    lines.push('', '👤 *Te vas a encontrar con:*')
+    if (c.nombre)  lines.push('• Nombre: ' + c.nombre)
+    if (c.celular) lines.push(PHONE + ' Celular: ' + c.celular)
+  }
   lines.push('', '¡Te esperamos! ' + WAVE)
   return lines.join('\n')
 }
@@ -905,7 +912,11 @@ function NewReserva({ clients, reservas, payments, config, SC, SR, SP, setTab, i
 
     // WhatsApp al cliente (con horario 9–5 y punto de encuentro)
     const enrichedPreview = { ...newReserva, totalPagado: toN(abono), totalRestante: restVal }
-    openWA(phone, buildReservaMessage(enrichedPreview, puntoEncuentro))
+    openWA(phone, buildReservaMessage(
+      enrichedPreview,
+      puntoEncuentro,
+      { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+    ))
 
     setTab('reservas')
   }
@@ -1008,38 +1019,55 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
     if (pastCutoff) { infoModal('Ya pasaron las ' + HORA_CORTE_HOY + ':00 a.m. No puedes mover la reserva a hoy.'); return }
     if (!nombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
     const newPhone = celular.replace(/\D/g, '')
-    // Si el celular cambió, actualizar el cliente asociado (o crear uno nuevo si el
-    // nuevo celular no existía).
-    let nextClients = clients
     const oldPhone = (r.clientPhone || '').replace(/\D/g, '')
-    if (newPhone !== oldPhone && r.clientId) {
-      const sameNew = nextClients.find(c => c.id !== r.clientId && (c.celular || '').replace(/\D/g, '') === newPhone && newPhone)
-      if (newPhone && sameNew) {
-        infoModal('Ya existe otro cliente con ese celular. Usa otro número o vincúlalo manualmente.')
-        return
+    const newNombre = capWords(nombre)
+    let nextClients = clients
+    let targetClientId = r.clientId
+
+    // Localizamos al cliente asociado a la reserva.
+    const linkedClient = r.clientId ? nextClients.find(c => c.id === r.clientId) : null
+
+    if (linkedClient) {
+      // Hay cliente vinculado: actualizamos siempre nombre (y celular si cambió).
+      // Si el celular cambió, validamos que no pertenezca a OTRO cliente.
+      if (newPhone && newPhone !== oldPhone) {
+        const sameNew = nextClients.find(c => c.id !== r.clientId && (c.celular || '').replace(/\D/g, '') === newPhone)
+        if (sameNew) {
+          infoModal('Ya existe otro cliente con ese celular. Usa otro número o vincúlalo manualmente.')
+          return
+        }
       }
       nextClients = nextClients.map(c => c.id === r.clientId
-        ? { ...c, nombre: capWords(nombre), celular: newPhone }
+        ? { ...c, nombre: newNombre, celular: newPhone }
         : c)
-      await SC(nextClients)
-    } else if (!r.clientId && newPhone) {
-      // La reserva no tenía cliente asociado; creamos uno con el nuevo celular.
-      const existe = nextClients.find(c => (c.celular || '').replace(/\D/g, '') === newPhone)
-      if (!existe) {
-        const newC = { id: uid(), nombre: capWords(nombre), celular: newPhone, createdAt: localNowISO() }
+    } else if (newPhone) {
+      // No hay cliente vinculado, pero la reserva tiene celular: lo buscamos
+      // por número para reutilizarlo y mantener una sola fuente de verdad.
+      const mismoNumero = nextClients.find(c => (c.celular || '').replace(/\D/g, '') === newPhone)
+      if (mismoNumero) {
+        nextClients = nextClients.map(c => c.id === mismoNumero.id
+          ? { ...c, nombre: newNombre }
+          : c)
+        targetClientId = mismoNumero.id
+      } else {
+        // Celular nuevo: creamos el cliente con los datos de la reserva.
+        const newC = { id: uid(), nombre: newNombre, celular: newPhone, createdAt: localNowISO() }
         nextClients = [...nextClients, newC]
-        await SC(nextClients)
+        targetClientId = newC.id
       }
     }
-    const matched = newPhone ? nextClients.find(c => (c.celular || '').replace(/\D/g, '') === newPhone) : null
+
+    // Si la lista de clientes cambió, persistimos.
+    if (nextClients !== clients) await SC(nextClients)
+
     const updated = {
       ...r,
       fecha,
       personas: toN(personas),
       valor: toN(valor),
-      clientName: capWords(nombre),
+      clientName: newNombre,
       clientPhone: newPhone,
-      clientId: matched ? matched.id : r.clientId,
+      clientId: targetClientId,
     }
     delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
     const next = reservas.map(x => x.id === r.id ? updated : x)
@@ -1048,7 +1076,11 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
     infoModal('Cambios guardados.')
   }
 
-  const reWA = () => openWA(r.clientPhone, buildReservaMessage({ ...r, totalPagado: r.totalPagado, totalRestante: r.totalRestante }, pe))
+  const reWA = () => openWA(r.clientPhone, buildReservaMessage(
+    { ...r, totalPagado: r.totalPagado, totalRestante: r.totalRestante },
+    pe,
+    { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+  ))
 
   const cancelar = () => {
     confirm('¿Cancelar la reserva ' + r.id + '? El día se liberará.', async () => {
@@ -1061,7 +1093,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
   }
 
   const finalizar = () => {
-    if (r.estadoOp !== 'EN_CURSO' && r.estadoOp !== 'CONFIRMADA') return
+    if (r.estadoOp === 'CANCELADA' || r.estadoOp === 'FINALIZADA') return
     setTab('finalizar', r.id)
   }
 
@@ -1149,9 +1181,17 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && (
-          <button className="btn-pri" style={{ flex: 1, minWidth: 140 }} onClick={() => setTab('pago', r.id)}>💳 Registrar abono</button>
+          <button
+            className="btn-pri"
+            style={{ flex: 1, minWidth: 140 }}
+            onClick={() => setTab('pago', r.id)}
+            disabled={r.pagoEstado === 'PAGADO'}
+            title={r.pagoEstado === 'PAGADO' ? 'La reserva ya está pagada en su totalidad' : 'Registrar un nuevo abono'}
+          >
+            {r.pagoEstado === 'PAGADO' ? '✅ Ya pagada' : '💳 Registrar abono'}
+          </button>
         )}
-        {(r.estadoOp === 'EN_CURSO' || r.estadoOp === 'CONFIRMADA') && (
+        {r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && (
           <button className="btn-pri" style={{ flex: 1, minWidth: 140, background: 'var(--green)' }} onClick={finalizar}>✅ Finalizar y registrar gastos</button>
         )}
         {r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && (
@@ -1192,12 +1232,14 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
   if (!r) return <div className="card">Reserva no encontrada.</div>
 
   // Mensaje que se le envía al cliente informándole del abono.
-  const buildAbonoMessage = (res, montoAbono, nuevoPagado, nuevoRestante, pe) => {
+  const buildAbonoMessage = (res, montoAbono, nuevoPagado, nuevoRestante, pe, contacto) => {
     const WAVE = '\uD83C\uDF0A'
     const CHECK = '\u2705'
     const CAL = '\uD83D\uDCC5'
     const CARD = '\uD83D\uDCB3'
     const PIN = '\uD83D\uDCCD'
+    const PHONE = '\uD83D\uDCF1'
+    const c = contacto || {}
     const lines = [
       '¡Hola ' + res.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva:',
       '',
@@ -1212,7 +1254,12 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
     } else {
       lines.push('', '✅ ¡Tu reserva ya está *pagada en su totalidad*! Te esperamos.')
     }
-    if (pe) lines.push(PIN + ' *Punto de encuentro:* ' + pe)
+    if (pe) lines.push(PIN + ' *Punto de encuentro (muelle):* ' + pe)
+    if (c && (c.nombre || c.celular)) {
+      lines.push('', '👤 *Te vas a encontrar con:*')
+      if (c.nombre)  lines.push('• Nombre: ' + c.nombre)
+      if (c.celular) lines.push(PHONE + ' Celular: ' + c.celular)
+    }
     return lines.join('\n')
   }
 
@@ -1306,7 +1353,10 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
         </div>
       ),
       onOk: () => setTab('edit-reserva', r.id),
-      onCancel: r.clientPhone ? () => openWA(r.clientPhone, buildAbonoMessage(r, m, nuevoPagado, nuevoRestante, pe)) : undefined,
+      onCancel: r.clientPhone ? () => openWA(r.clientPhone, buildAbonoMessage(
+        r, m, nuevoPagado, nuevoRestante, pe,
+        { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+      )) : undefined,
     })
   }
 
@@ -1382,40 +1432,45 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
       infoModal('No se permiten valores negativos. Revisa: ' + negativos.join(', '))
       return
     }
-    const updated = { ...r, estadoOp: 'FINALIZADA', fechaFinalizacion: localNowISO() }
-    delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
-    await SR(reservations.map(x => x.id === r.id ? updated : x))
+    try {
+      const updated = { ...r, estadoOp: 'FINALIZADA', fechaFinalizacion: localNowISO() }
+      delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
+      await SR(reservations.map(x => x.id === r.id ? updated : x))
 
-    const newExpenses = []
-    const mk = (cat, monto) => newExpenses.push({ id: uid(), reservaId: r.id, fecha: todayStr(), categoria: cat, monto: toN(monto), nota })
-    if (toN(tripulacion) > 0) mk('Tripulación', tripulacion)
-    if (toN(admin)       > 0) mk('Administración', admin)
-    if (toN(combust)     > 0) mk('Combustible', combust)
-    if (toN(otros)       > 0) mk('Otros', otros)
-    if (newExpenses.length > 0) await SE([...expenses, ...newExpenses])
+      const newExpenses = []
+      const mk = (cat, monto) => newExpenses.push({ id: uid(), reservaId: r.id, fecha: todayStr(), categoria: cat, monto: toN(monto), nota })
+      if (toN(tripulacion) > 0) mk('Tripulación', tripulacion)
+      if (toN(admin)       > 0) mk('Administración', admin)
+      if (toN(combust)     > 0) mk('Combustible', combust)
+      if (toN(otros)       > 0) mk('Otros', otros)
+      if (newExpenses.length > 0) await SE([...expenses, ...newExpenses])
 
-    setModal({
-      type: 'custom',
-      okLabel: 'Entendido',
-      cancelLabel: null,
-      body: (
-        <div>
-          <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>✅</div>
-          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10, color: 'var(--green)' }}>
-            ¡Reserva finalizada!
+      setModal({
+        type: 'custom',
+        okLabel: 'Volver a Reservas',
+        cancelLabel: null,
+        body: (
+          <div>
+            <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>✅</div>
+            <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10, color: 'var(--green)' }}>
+              ¡Reserva finalizada!
+            </div>
+            <p style={{ margin: '0 0 10px' }}>
+              La reserva <b>{r.id}</b> de <b>{r.clientName}</b> quedó como <b>FINALIZADA</b>.
+            </p>
+            <div className="card" style={{ background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
+              <Row label="Ingreso"      val={fmtPeso(r.totalPagado)} />
+              <Row label="Total gastos" val={'−' + fmtPeso(totalGastos)} />
+              <Row label="Resultado"    val={fmtPeso(resultado)} bold />
+            </div>
+            {newExpenses.length > 0 && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 8 }}>Se registraron {newExpenses.length} gasto(s) del recorrido.</div>}
           </div>
-          <p style={{ margin: '0 0 10px' }}>
-            La reserva <b>{r.id}</b> de <b>{r.clientName}</b> quedó como <b>FINALIZADA</b>.
-          </p>
-          <div className="card" style={{ background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
-            <Row label="Ingreso"      val={fmtPeso(r.totalPagado)} />
-            <Row label="Total gastos" val={'−' + fmtPeso(totalGastos)} />
-            <Row label="Resultado"    val={fmtPeso(resultado)} bold />
-          </div>
-        </div>
-      ),
-    })
-    setTab('reservas')
+        ),
+        onOk: () => setTab('reservas'),
+      })
+    } catch (e) {
+      infoModal('Error al finalizar la reserva: ' + (e && e.message ? e.message : e))
+    }
   }
 
   return (
@@ -1508,7 +1563,7 @@ function ReservasTab({ enriched, setTab }) {
         <details key={title} open style={{ marginBottom: 8 }}>
           <summary style={{ fontWeight: 700, padding: '8px 4px', cursor: 'pointer', color: 'var(--t2)' }}>{title} ({list.length})</summary>
           <div className="card" style={{ padding: 0 }}>
-            {list.map(r => <ReservaRow key={r.id} r={r} onClick={() => setTab('edit-reserva', r.id)} />)}
+            {list.map(r => <ReservaRow key={r.id} r={r} showDate onClick={() => setTab('edit-reserva', r.id)} />)}
           </div>
         </details>
       ))}
@@ -1567,17 +1622,43 @@ function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
   const [showNew, setShowNew] = useState(false)
   const [nNombre, setNNombre] = useState('')
   const [nCelular, setNCelular] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [eNombre, setENombre] = useState('')
+  const [eCelular, setECelular] = useState('')
 
   const list = (Array.isArray(clients) ? clients : [])
     .filter(c => !q || phoneMatch(c.celular, q) || (c.nombre || '').toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
 
+  const startEdit = c => {
+    setEditing(c.id)
+    setENombre(c.nombre || '')
+    setECelular(c.celular || '')
+  }
+  const closeEdit = () => { setEditing(null); setENombre(''); setECelular('') }
+
+  const guardarEdicion = async () => {
+    if (!eNombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
+    const newPhone = eCelular.replace(/\D/g, '')
+    const editingC = clients.find(c => c.id === editing)
+    const oldPhone = (editingC && editingC.celular || '').replace(/\D/g, '')
+    if (newPhone && newPhone !== oldPhone && clients.some(c => c.id !== editing && (c.celular || '').replace(/\D/g, '') === newPhone)) {
+      infoModal('Ya existe otro cliente con ese celular.'); return
+    }
+    await SC(clients.map(c => c.id === editing
+      ? { ...c, nombre: capWords(eNombre), celular: newPhone }
+      : c))
+    closeEdit()
+  }
+
   const del = c => {
-    const used = enriched.some(r => r.clientId === c.id)
-    const msg = used
-      ? 'Este cliente tiene reservas. ¿Eliminarlo de todos modos?'
-      : '¿Eliminar al cliente ' + c.nombre + '?'
-    confirm(msg, () => SC(clients.filter(x => x.id !== c.id)))
+    const reservasCliente = enriched.filter(r => r.clientId === c.id)
+    if (reservasCliente.length > 0) {
+      // No se puede eliminar si tiene reservas asociadas.
+      infoModal('No se puede eliminar el cliente ' + c.nombre + ' porque tiene ' + reservasCliente.length + ' reserva(s) asociada(s). Primero cancela o elimina esas reservas.')
+      return
+    }
+    confirm('¿Eliminar definitivamente al cliente ' + c.nombre + '?', () => SC(clients.filter(x => x.id !== c.id)))
   }
 
   const guardarNuevo = async () => {
@@ -1606,12 +1687,13 @@ function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
             <div style={{ width: 38, height: 38, borderRadius: 19, background: 'var(--primary-l)', color: 'var(--primary-d)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
               {(c.nombre || '?').charAt(0).toUpperCase()}
             </div>
-            <div style={{ flex: 1 }} onClick={() => setTab('client-history', c.id)}>
-              <div style={{ fontWeight: 600 }}>{c.nombre}</div>
-              <div style={{ fontSize: 12, color: 'var(--t2)' }}>{c.celular} · {count} reserva{count === 1 ? '' : 's'}</div>
+            <div style={{ flex: 1, minWidth: 0 }} onClick={() => setTab('client-history', c.id)}>
+              <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</div>
+              <div style={{ fontSize: 12, color: 'var(--t2)' }}>{c.celular || '—'} · {count} reserva{count === 1 ? '' : 's'}</div>
             </div>
-            <button className="btn-sec" style={{ padding: '6px 10px' }} onClick={() => openWA(c.celular, 'Hola ' + c.nombre + ', ')}>📱</button>
-            <button className="btn-sec" style={{ padding: '6px 10px' }} onClick={() => del(c)}>🗑</button>
+            {c.celular && <button className="btn-sec" style={{ padding: '6px 10px' }} onClick={() => openWA(c.celular, 'Hola ' + c.nombre + ', ')} title="Enviar WhatsApp">💬</button>}
+            <button className="btn-sec" style={{ padding: '6px 10px' }} onClick={() => startEdit(c)} title="Editar cliente">✏️</button>
+            <button className="btn-sec" style={{ padding: '6px 10px' }} onClick={() => del(c)} title="Eliminar cliente">🗑</button>
           </div>
         )
       })}
@@ -1629,6 +1711,22 @@ function ClientesTab({ clients, enriched, SC, setTab, confirm, infoModal }) {
           <input className="inp" autoFocus value={nNombre} onChange={e => setNNombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
           <label className="lbl">Celular (opcional)</label>
           <input className="inp" value={nCelular} onChange={e => setNCelular(e.target.value)} inputMode="tel" placeholder="3001234567" />
+        </Modal>
+      )}
+
+      {editing && (
+        <Modal
+          onOk={guardarEdicion}
+          onCancel={closeEdit}
+          okLabel="Guardar cambios"
+          cancelLabel="Cancelar"
+        >
+          <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>✏️</div>
+          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Editar cliente</div>
+          <label className="lbl">Nombre</label>
+          <input className="inp" autoFocus value={eNombre} onChange={e => setENombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
+          <label className="lbl">Celular (opcional)</label>
+          <input className="inp" value={eCelular} onChange={e => setECelular(e.target.value)} inputMode="tel" placeholder="3001234567" />
         </Modal>
       )}
     </div>
@@ -1742,10 +1840,22 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
   const closeIng = () => {
     setShowNewIng(false); setIngReservaId(''); setIngMonto(''); setIngFecha(todayStr()); setIngMetodo('Transferencia'); setIngNota('')
   }
+  // Reserva seleccionada (enriched para tener los totales ya calculados).
+  const ingReserva = enriched.find(r => r.id === ingReservaId)
+  const ingPagado = ingReserva ? (payments || []).filter(p => String(p.reservaId) === String(ingReservaId)).reduce((s, p) => s + toN(p.monto), 0) : 0
+  const ingValor = ingReserva ? toN(ingReserva.valor) : 0
+  const ingResta = Math.max(0, ingValor - ingPagado)
+  const ingPagada = ingReserva && ingResta <= 0
   const guardarIng = async () => {
     const m = toN(ingMonto)
-    if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
     if (!ingReservaId) { infoModal('Selecciona la reserva a la que pertenece este ingreso.'); return }
+    if (!ingReserva) { infoModal('La reserva seleccionada no existe.'); return }
+    if (ingPagada) { infoModal('La reserva ' + ingReservaId + ' ya está pagada en su totalidad. No puedes registrar más ingresos.'); return }
+    if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
+    if (m > ingResta) {
+      infoModal('El ingreso de ' + fmtPeso(m) + ' supera el saldo pendiente de ' + fmtPeso(ingResta) + '. Corrige el monto.')
+      return
+    }
     const newP = { id: uid(), reservaId: ingReservaId, fecha: ingFecha, monto: m, metodo: ingMetodo, nota: ingNota }
     await SP([...payments, newP])
     infoModal('Ingreso registrado.')
@@ -1849,6 +1959,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           onCancel={closeIng}
           okLabel="Registrar ingreso"
           cancelLabel="Cancelar"
+          okDisabled={!ingReserva || ingPagada || toN(ingMonto) <= 0 || toN(ingMonto) > ingResta}
         >
           <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>💰</div>
           <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Nuevo ingreso</div>
@@ -1858,20 +1969,50 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             {enriched
               .slice()
               .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
-              .map(r => <option key={r.id} value={r.id}>{r.id} · {r.clientName} · {fmtDate(r.fecha)}</option>)}
+              .map(r => {
+                const pagado = (payments || []).filter(p => String(p.reservaId) === String(r.id)).reduce((s, p) => s + toN(p.monto), 0)
+                const resta = Math.max(0, toN(r.valor) - pagado)
+                return <option key={r.id} value={r.id}>{r.id} · {r.clientName} · {fmtDate(r.fecha)} · {resta > 0 ? 'resta ' + fmtPeso(resta) : 'pagada'}</option>
+              })}
           </select>
+
+          {ingReserva && (
+            <div className="card" style={{
+              background: ingPagada ? 'var(--green-bg)' : 'var(--primary-l)',
+              borderColor: ingPagada ? 'var(--green)' : 'var(--primary)',
+              marginBottom: 10, padding: 12,
+            }}>
+              {ingPagada
+                ? <div style={{ fontSize: 13, color: 'var(--green)', fontWeight: 700, textAlign: 'center' }}>✅ Esta reserva ya está pagada en su totalidad. No puedes registrar más ingresos.</div>
+                : <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span>Valor total</span><b>{fmtPeso(ingValor)}</b>
+                  </div>}
+              {!ingPagada && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span>Ya abonado</span><b style={{ color: 'var(--green)' }}>{fmtPeso(ingPagado)}</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, marginTop: 4, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
+                    <span>Saldo pendiente</span><b style={{ color: 'var(--orange)' }}>{fmtPeso(ingResta)}</b>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
               <label className="lbl">Monto</label>
-              <input type="number" min="0" step="any" className="inp" placeholder="0" value={ingMonto} onChange={e => setIngMonto(e.target.value)} autoFocus />
+              <input type="number" min="0" max={ingResta || undefined} step="any" className="inp" placeholder="0" value={ingMonto} onChange={e => setIngMonto(e.target.value)} autoFocus disabled={ingPagada} />
+              {!ingPagada && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(ingResta)}</b></div>}
             </div>
             <div>
               <label className="lbl">Fecha</label>
-              <input type="date" className="inp" value={ingFecha} onChange={e => setIngFecha(e.target.value)} />
+              <input type="date" className="inp" value={ingFecha} onChange={e => setIngFecha(e.target.value)} disabled={ingPagada} />
             </div>
           </div>
           <label className="lbl">Método</label>
-          <select className="inp" value={ingMetodo} onChange={e => setIngMetodo(e.target.value)} style={{ marginBottom: 10 }}>
+          <select className="inp" value={ingMetodo} onChange={e => setIngMetodo(e.target.value)} style={{ marginBottom: 10 }} disabled={ingPagada}>
             <option>Efectivo</option>
             <option>Transferencia</option>
             <option>Nequi</option>
@@ -1880,7 +2021,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             <option>Otro</option>
           </select>
           <label className="lbl">Nota (opcional)</label>
-          <input className="inp" value={ingNota} onChange={e => setIngNota(e.target.value)} placeholder="Detalle del pago…" />
+          <input className="inp" value={ingNota} onChange={e => setIngNota(e.target.value)} placeholder="Detalle del pago…" disabled={ingPagada} />
         </Modal>
       )}
     </div>
@@ -1890,19 +2031,35 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
 /* ══════════════════════════════════════════════════════════════
    AJUSTES
 ══════════════════════════════════════════════════════════════ */
-function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setThemeMode, setThemePalette }) {
-  const [saldo,  setSaldo]  = useState(config.saldoInicial || '0')
-  const [pe,     setPe]     = useState(config.puntoEncuentro || '')
+function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setThemeMode, setThemePalette, infoModal }) {
+  const [saldo,    setSaldo]    = useState(config.saldoInicial || '0')
+  const [pe,       setPe]       = useState(config.puntoEncuentro || '')
+  const [cNombre,  setCNombre]  = useState(config.contactoNombre || '')
+  const [cCelular, setCCelular] = useState(config.contactoCelular || '')
   const [showReset, setShowReset] = useState(false)
   const [confirmText, setConfirmText] = useState('')
 
   useEffect(() => {
     setSaldo(config.saldoInicial || '0')
     setPe(config.puntoEncuentro || '')
-  }, [config.saldoInicial, config.puntoEncuentro])
+    setCNombre(config.contactoNombre || '')
+    setCCelular(config.contactoCelular || '')
+  }, [config.saldoInicial, config.puntoEncuentro, config.contactoNombre, config.contactoCelular])
 
   const save = async () => {
-    await SCfg({ saldoInicial: toN(saldo), puntoEncuentro: pe })
+    const num = toN(saldo)
+    if (num < 0) { infoModal('El saldo inicial no puede ser negativo. Ingresa 0 o un valor positivo.'); return }
+    const phone = cCelular.replace(/\D/g, '')
+    if (cCelular && phone.length < 7) {
+      infoModal('El celular de contacto no es válido. Ingresa al menos 7 dígitos.')
+      return
+    }
+    await SCfg({
+      saldoInicial: num,
+      puntoEncuentro: pe,
+      contactoNombre: capWords(cNombre),
+      contactoCelular: phone,
+    })
   }
 
   const openReset = () => { setConfirmText(''); setShowReset(true) }
@@ -1921,10 +2078,28 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Negocio</h3>
         <label className="lbl">Saldo inicial (dinero ya ahorrado)</label>
-        <input type="number" className="inp" value={saldo} onChange={e => setSaldo(e.target.value)} style={{ marginBottom: 8 }} />
-        <label className="lbl">Punto de encuentro por defecto</label>
+        <input
+          type="number" min="0" step="any" className="inp"
+          value={saldo}
+          onChange={e => { const v = e.target.value; if (v !== '' && Number(v) < 0) return; setSaldo(v) }}
+          placeholder="0"
+          style={{ marginBottom: 8 }}
+        />
+        <label className="lbl">Punto de encuentro por defecto (muelle)</label>
         <input className="inp" value={pe} onChange={e => setPe(e.target.value)} placeholder="Muelle, dirección…" style={{ marginBottom: 10 }} />
         <button className="btn-pri" onClick={save} style={{ width: '100%' }}>Guardar</button>
+      </div>
+
+      <div className="card" style={{ marginBottom: 12 }}>
+        <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Contacto del negocio</h3>
+        <p style={{ fontSize: 12, color: 'var(--t2)', margin: '0 0 10px' }}>
+          Estos datos aparecen en los mensajes de WhatsApp al cliente para que sepa con quién se va a encontrar.
+        </p>
+        <label className="lbl">Nombre del contacto</label>
+        <input className="inp" value={cNombre} onChange={e => setCNombre(e.target.value)} placeholder="Ej. Bryan" style={{ marginBottom: 8 }} />
+        <label className="lbl">Celular del contacto</label>
+        <input className="inp" value={cCelular} onChange={e => setCCelular(e.target.value)} inputMode="tel" placeholder="3001234567" style={{ marginBottom: 10 }} />
+        <button className="btn-pri" onClick={save} style={{ width: '100%' }}>Guardar contacto</button>
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
