@@ -1176,6 +1176,10 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
 ══════════════════════════════════════════════════════════════ */
 function EditReserva({ enriched, reservas, payments, expenses, config, clients, SC, SR, SP, deleteReserva, deletePago, setTab, confirm, infoModal, tabExtra, goBack }) {
   const r = enriched.find(x => x.id === tabExtra)
+  // useRef sincronizado con la prop `reservas` en cada render, para que
+  // `save` y `cancelar` siempre vean TODAS las reservas actuales.
+  const reservasRef = useRef(reservas)
+  reservasRef.current = reservas
   const [personas, setPersonas] = useState(r?.personas || 1)
   const [valor,    setValor]    = useState(String(r?.valor || 0))
   const [fecha,    setFecha]    = useState(r?.fecha || todayStr())
@@ -1262,7 +1266,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
       clientId: targetClientId,
     }
     delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
-    const sinEsta = (Array.isArray(reservas) ? reservas : []).filter(x => x.id !== r.id)
+    const sinEsta = (Array.isArray(reservasRef.current) ? reservasRef.current : []).filter(x => x.id !== r.id)
     const next = [...sinEsta, updated]
     await SR(next)
     if (r.calendarEventId) saveData({ action: 'updateCalendarEvent', eventId: r.calendarEventId, calendarEvent: updated }).catch(() => {})
@@ -1284,7 +1288,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
     confirm(msg, async () => {
       const updated = { ...r, estadoOp: 'CANCELADA' }
       delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
-      const sinEsta = (Array.isArray(reservas) ? reservas : []).filter(x => x.id !== r.id)
+      const sinEsta = (Array.isArray(reservasRef.current) ? reservasRef.current : []).filter(x => x.id !== r.id)
       await SR([...sinEsta, updated])
       // Cascada: borrar también los ingresos (pagos) asociados a esta reserva,
       // para que el dinero que se había abonado deje de contar en finanzas
@@ -1603,6 +1607,12 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
 ══════════════════════════════════════════════════════════════ */
 function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, infoModal, setModal, tabExtra, goBack }) {
   const r = enriched.find(x => x.id === tabExtra)
+  // useRef sincronizado con la prop `reservations` en cada render. El
+  // `submit` lo lee para construir el array a guardar, garantizando que
+  // vea TODAS las reservas actuales (incluso las creadas hace instantes
+  // cuyo `setR` se reflejó en el state pero la prop del closure aún no).
+  const reservasRef = useRef(reservations)
+  reservasRef.current = reservations
   const [tripulacion, setTrip] = useState('')
   const [admin,       setAdm]  = useState('')
   const [combust,     setCom]  = useState('')
@@ -1633,7 +1643,11 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
       return
     }
     try {
-      const reservasActuales = Array.isArray(reservations) ? reservations : []
+      // Usamos el `reservasRef.current` (sincronizado con la prop en cada
+      // render) en vez de la prop `reservations` capturada en el closure,
+      // para garantizar que veamos TODAS las reservas actuales, incluso las
+      // creadas hace instantes.
+      const reservasActuales = Array.isArray(reservasRef.current) ? reservasRef.current : []
       const gastosActuales   = Array.isArray(expenses) ? expenses : []
       const updated = { ...r, estadoOp: 'FINALIZADA', fechaFinalizacion: localNowISO() }
       delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
