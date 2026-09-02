@@ -75,14 +75,23 @@ function doPost(e) {
       if (!check.ok) { lock.releaseLock(); return err(check.error); }
       writeSheet(ss, 'reservations', b.reservations);
     }
+    // Para la limpieza de huérfanos, si el payload trae `reservations` las
+    // usamos; si no, leemos las reservas actuales de Sheets para no borrar
+    // pagos/gastos que sí correspondan a reservas existentes pero que el
+    // frontend no envió en este payload.
+    let idsValidosReservas = new Set();
+    if (b.reservations !== undefined) {
+      idsValidosReservas = new Set(b.reservations.map(r => r.id));
+    } else {
+      const reservasEnSheets = readSheet(ss, 'reservations');
+      idsValidosReservas = new Set(reservasEnSheets.map(r => r.id));
+    }
     if (b.payments !== undefined) {
-      const idsValidos = new Set((b.reservations || []).map(r => r.id));
-      const limpios = b.payments.filter(p => idsValidos.has(p.reservaId));
+      const limpios = b.payments.filter(p => idsValidosReservas.has(p.reservaId));
       writeSheet(ss, 'payments', limpios);
     }
     if (b.expenses !== undefined) {
-      const idsValidos = new Set((b.reservations || []).map(r => r.id));
-      const limpios = b.expenses.filter(e => idsValidos.has(e.reservaId));
+      const limpios = b.expenses.filter(e => idsValidosReservas.has(e.reservaId));
       writeSheet(ss, 'expenses', limpios);
     }
 
