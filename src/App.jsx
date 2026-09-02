@@ -1231,7 +1231,8 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
       clientId: targetClientId,
     }
     delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
-    const next = reservas.map(x => x.id === r.id ? updated : x)
+    const sinEsta = (Array.isArray(reservas) ? reservas : []).filter(x => x.id !== r.id)
+    const next = [...sinEsta, updated]
     await SR(next)
     if (r.calendarEventId) saveData({ action: 'updateCalendarEvent', eventId: r.calendarEventId, calendarEvent: updated }).catch(() => {})
     infoModal('Cambios guardados.')
@@ -1248,7 +1249,8 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
     confirm('¿Cancelar la reserva ' + r.id + '? El día se liberará.', async () => {
       const updated = { ...r, estadoOp: 'CANCELADA' }
       delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
-      await SR(reservas.map(x => x.id === r.id ? updated : x))
+      const sinEsta = (Array.isArray(reservas) ? reservas : []).filter(x => x.id !== r.id)
+      await SR([...sinEsta, updated])
       if (r.calendarEventId) saveData({ action: 'deleteCalendarEvent', eventId: r.calendarEventId }).catch(() => {})
       setTab('reservas')
     })
@@ -1579,7 +1581,11 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
       const gastosActuales   = Array.isArray(expenses) ? expenses : []
       const updated = { ...r, estadoOp: 'FINALIZADA', fechaFinalizacion: localNowISO() }
       delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
-      await SR(reservasActuales.map(x => x.id === r.id ? updated : x))
+      // Defensiva: si la reserva actual no está en reservasActuales (por un
+      // desface de props/state), la agregamos. Si está, la reemplazamos.
+      const sinEsta = reservasActuales.filter(x => x.id !== r.id)
+      const nextR = [...sinEsta, updated]
+      await SR(nextR)
 
       const newExpenses = []
       const mk = (cat, monto) => newExpenses.push({ id: uid(), reservaId: r.id, fecha: todayStr(), categoria: cat, monto: toN(monto), nota })
