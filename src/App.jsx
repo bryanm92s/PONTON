@@ -77,6 +77,18 @@ const applyTheme = (pid, mode) => {
 }
 
 const BIZ_NAME     = import.meta.env.VITE_BIZ_NAME     || 'La Luz de Emi'
+
+// Convierte el nombre del negocio a Unicode "Mathematical Bold Script" (𝓛𝓪 𝓛𝓾𝔃...)
+// para que se vea elegante en los mensajes de WhatsApp. Solo letras y espacios
+// se transforman; los demás caracteres (números, acentos raros, emojis) se quedan igual.
+const toFancyScript = str => {
+  const map = {
+    A: '\uD835\uDCD0', B: '\uD835\uDCD1', C: '\uD835\uDCD2', D: '\uD835\uDCD3', E: '\uD835\uDCD4', F: '\uD835\uDCD5', G: '\uD835\uDCD6', H: '\uD835\uDCD7', I: '\uD835\uDCD8', J: '\uD835\uDCD9', K: '\uD835\uDCDA', L: '\uD835\uDCDB', M: '\uD835\uDCDC', N: '\uD835\uDCDD', O: '\uD835\uDCDE', P: '\uD835\uDCDF', Q: '\uD835\uDCE0', R: '\uD835\uDCE1', S: '\uD835\uDCE2', T: '\uD835\uDCE3', U: '\uD835\uDCE4', V: '\uD835\uDCE5', W: '\uD835\uDCE6', X: '\uD835\uDCE7', Y: '\uD835\uDCE8', Z: '\uD835\uDCE9',
+    a: '\uD835\uDCEA', b: '\uD835\uDCEB', c: '\uD835\uDCEC', d: '\uD835\uDCED', e: '\uD835\uDCEE', f: '\uD835\uDCEF', g: '\uD835\uDCF0', h: '\uD835\uDCF1', i: '\uD835\uDCF2', j: '\uD835\uDCF3', k: '\uD835\uDCF4', l: '\uD835\uDCF5', m: '\uD835\uDCF6', n: '\uD835\uDCF7', o: '\uD835\uDCF8', p: '\uD835\uDCF9', q: '\uD835\uDCFA', r: '\uD835\uDCFB', s: '\uD835\uDCFC', t: '\uD835\uDCFD', u: '\uD835\uDCFE', v: '\uD835\uDCFF', w: '\uD835\uDD00', x: '\uD835\uDD01', y: '\uD835\uDD02', z: '\uD835\uDD03',
+  }
+  return String(str || '').split('').map(ch => map[ch] || ch).join('')
+}
+const BIZ_NAME_FANCY = toFancyScript(BIZ_NAME)
 const BIZ_SUBTITLE = import.meta.env.VITE_BIZ_SUBTITLE || 'Reservas y operación'
 const BIZ_EMOJI    = import.meta.env.VITE_BIZ_EMOJI    || '🚤'
 const BIZ_LOGO     = import.meta.env.VITE_BIZ_LOGO     || ''
@@ -109,11 +121,14 @@ const buildReservaMessage = (r, puntoEncuentro, contacto) => {
   const PHONE = '\uD83D\uDCF1'
   const pe = puntoEncuentro || r.puntoEncuentro || ''
   const c = contacto || {}
+  const contactoNombre = c.nombre || ''
+  const contactoPhone = String(c.celular || '').replace(/\D/g, '')
+
   const lines = [
-    '¡Hola ' + r.clientName + '! ' + WAVE + ' Tu reserva en el pontón quedó creada:',
+    '¡Hola ' + r.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva en el pontón ' + BIZ_NAME_FANCY + ':',
     '',
     CHECK + ' *Reserva:* ' + r.id,
-    CAL + ' *Fecha:* ' + fmtDate(r.fecha),
+    CAL + ' *Fecha del recorrido:* ' + fmtDate(r.fecha),
     CLOCK + ' *Salida:* ' + fmtTime(HORA_SALIDA) + ' — *Regreso:* ' + fmtTime(HORA_LLEGADA),
     PEOPLE + ' *Personas:* ' + r.personas,
     CARD + ' *Valor:* ' + fmtPeso(r.valor),
@@ -121,10 +136,81 @@ const buildReservaMessage = (r, puntoEncuentro, contacto) => {
     CARD + ' *Resta:* ' + fmtPeso(r.totalRestante || 0),
   ]
   if (pe) lines.push(PIN + ' *Punto de encuentro (muelle):* ' + pe)
-  if (c && (c.nombre || c.celular)) {
+  if (contactoNombre || contactoPhone) {
     lines.push('', '👤 *Te vas a encontrar con:*')
-    if (c.nombre)  lines.push('• Nombre: ' + c.nombre)
-    if (c.celular) lines.push(PHONE + ' Celular: ' + c.celular)
+    if (contactoNombre) lines.push('• Nombre: ' + contactoNombre)
+    if (contactoPhone)  lines.push(PHONE + ' Celular: ' + contactoPhone)
+    if (contactoPhone) {
+      const introMsg = 'Hola, mi nombre es ' + r.clientName + ', tengo una reserva para el ' + fmtDate(r.fecha) + ' a las ' + fmtTime(HORA_SALIDA) + ' (' + r.id + ').'
+      const link = 'https://wa.me/57' + contactoPhone + '?text=' + encodeURIComponent(introMsg)
+      lines.push('')
+      lines.push('👉 *Toca aquí para hablar con ' + contactoNombre + '*: ' + link)
+    }
+  }
+  if ((r.totalRestante || 0) > 0) {
+    lines.push('', '⚠️ *Importante:* antes de iniciar el recorrido se debe pagar el valor total. Si no, el tour no puede iniciar.')
+  } else {
+    lines.push('', CHECK + ' ¡Tu reserva ya está *pagada en su totalidad*! Te esperamos.')
+  }
+  lines.push('', '¡Te esperamos! ' + WAVE)
+  return lines.join('\n')
+}
+
+/* ══════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════
+   MENSAJES DE WHATSAPP (helpers globales)
+══════════════════════════════════════════════════════════════ */
+const buildAbonoMessage = (res, pagos, pe, contacto) => {
+  const WAVE = '\uD83C\uDF0A'
+  const CHECK = '\u2705'
+  const CAL = '\uD83D\uDCC5'
+  const CARD = '\uD83D\uDCB3'
+  const PIN = '\uD83D\uDCCD'
+  const PHONE = '\uD83D\uDCF1'
+  const c = contacto || {}
+  const contactoNombre = c.nombre || ''
+  const contactoPhone = String(c.celular || '').replace(/\D/g, '')
+  const valor = toN(res.valor)
+  const abonado = (Array.isArray(pagos) ? pagos : []).reduce((s, p) => s + toN(p.monto), 0)
+  const resta = Math.max(0, valor - abonado)
+  const lista = (Array.isArray(pagos) ? pagos : []).slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
+  const isFirst = (i) => i === 0
+  const totalCount = lista.length
+  const lines = [
+    '¡Hola ' + res.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva en el pontón ' + BIZ_NAME_FANCY + ':',
+    '',
+    CHECK + ' *Reserva:* ' + res.id,
+    CAL + ' *Fecha del recorrido:* ' + fmtDate(res.fecha),
+    CARD + ' *Por un valor de:* ' + fmtPeso(valor),
+  ]
+  lista.forEach((p, i) => {
+    if (isFirst(i)) {
+      lines.push(CARD + ' *Recibimos un abono inicial el día* ' + fmtDate(p.fecha) + ': ' + fmtPeso(p.monto))
+    } else {
+      lines.push(CARD + ' *Recibimos un abono de el día* ' + fmtDate(p.fecha) + ': ' + fmtPeso(p.monto))
+    }
+  })
+  if (totalCount === 0) {
+    lines.push(CARD + ' *Recibimos un abono de:* ' + fmtPeso(abonado))
+  }
+  lines.push(CARD + ' *Abonado en total:* ' + fmtPeso(abonado))
+  lines.push(CARD + ' *Saldo restante:* ' + fmtPeso(resta))
+  if (pe) lines.push(PIN + ' *Punto de encuentro (muelle):* ' + pe)
+  if (contactoNombre || contactoPhone) {
+    lines.push('', '👤 *Te vas a encontrar con:*')
+    if (contactoNombre) lines.push('• Nombre: ' + contactoNombre)
+    if (contactoPhone)  lines.push(PHONE + ' Celular: ' + contactoPhone)
+    if (contactoPhone) {
+      const introMsg = 'Hola, mi nombre es ' + res.clientName + ', tengo una reserva para el ' + fmtDate(res.fecha) + ' a las ' + fmtTime(HORA_SALIDA) + ' (' + res.id + ').'
+      const link = 'https://wa.me/57' + contactoPhone + '?text=' + encodeURIComponent(introMsg)
+      lines.push('')
+      lines.push('👉 *Toca aquí para hablar con ' + contactoNombre + '*: ' + link)
+    }
+  }
+  if (resta > 0) {
+    lines.push('', '⚠️ *Importante:* antes de iniciar el recorrido se debe pagar el valor total. Si no, el tour no puede iniciar.')
+  } else {
+    lines.push('', CHECK + ' ¡Tu reserva ya está *pagada en su totalidad*! Te esperamos.')
   }
   lines.push('', '¡Te esperamos! ' + WAVE)
   return lines.join('\n')
@@ -221,6 +307,60 @@ export default function App() {
 
   // Reservas enriquecidas con totales y estados calculados
   const enriched = useMemo(() => enrichReservas(reservas, payments), [reservas, payments, tick])
+
+  // ── Recordatorio: detecta reservas para MAÑANA y muestra un modal con el
+  //    mensaje pre-escrito de WhatsApp. Marca cada reserva como "ya recordada"
+  //    en localStorage para no repetir cada 30 s.
+  useEffect(() => {
+    if (!enriched || enriched.length === 0 || status === 'loading' || status === 'noconfig') return
+    const today = todayStr()
+    const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return localDateStr(d) })()
+    const yaEnviados = (() => { try { return JSON.parse(localStorage.getItem('pn_reminded') || '[]') } catch { return [] } })()
+    const pendientes = enriched.filter(r =>
+      r.fecha === tomorrow &&
+      r.estadoOp !== 'CANCELADA' &&
+      r.estadoOp !== 'FINALIZADA' &&
+      !yaEnviados.includes(r.id)
+    )
+    if (pendientes.length === 0) return
+    const r = pendientes[0]
+    // Marcar como recordada (incluso si el usuario ignora el modal).
+    const nuevo = [...yaEnviados, r.id]
+    try { localStorage.setItem('pn_reminded', JSON.stringify(nuevo)) } catch {}
+    setModal({
+      type: 'custom',
+      okLabel: 'Cerrar',
+      cancelLabel: r.clientPhone ? '📱 Enviar recordatorio' : null,
+      body: (
+        <div>
+          <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>🔔</div>
+          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 10 }}>
+            Recordatorio: reserva para mañana
+          </div>
+          <p style={{ margin: '0 0 10px' }}>
+            La reserva <b>{r.id}</b> de <b>{r.clientName}</b> es mañana <b>{fmtDate(r.fecha)}</b> a las <b>{fmtTime(r.hora)}</b>.
+          </p>
+          <p style={{ margin: '0 0 10px' }}>
+            Puedes enviarle al cliente un recordatorio con los datos del recorrido:
+          </p>
+          <div className="card" style={{ background: 'var(--primary-l)', borderColor: 'var(--primary)', maxHeight: 260, overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: 12.5, lineHeight: 1.45 }}>
+            {buildAbonoMessage(
+              r,
+              (Array.isArray(payments) ? payments : []).filter(p => String(p.reservaId) === String(r.id)),
+              r.puntoEncuentro || (config && config.puntoEncuentro) || '',
+              { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+            )}
+          </div>
+        </div>
+      ),
+      onCancel: r.clientPhone ? () => openWA(r.clientPhone, buildAbonoMessage(
+        r,
+        (Array.isArray(payments) ? payments : []).filter(p => String(p.reservaId) === String(r.id)),
+        r.puntoEncuentro || (config && config.puntoEncuentro) || '',
+        { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+      )) : undefined,
+    })
+  }, [enriched, status])
 
   const sync = useCallback(async (payload) => {
     const km = { clients: 'pn_c', reservations: 'pn_r', payments: 'pn_p', expenses: 'pn_e', config: 'pn_cfg' }
@@ -1192,7 +1332,15 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
           </button>
         )}
         {r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && (
-          <button className="btn-pri" style={{ flex: 1, minWidth: 140, background: 'var(--green)' }} onClick={finalizar}>✅ Finalizar y registrar gastos</button>
+          <button
+            className="btn-pri"
+            style={{ flex: 1, minWidth: 140, background: 'var(--green)' }}
+            onClick={finalizar}
+            disabled={r.pagoEstado !== 'PAGADO'}
+            title={r.pagoEstado !== 'PAGADO' ? 'Debes terminar de pagar la reserva antes de finalizarla' : 'Finalizar la reserva y registrar los gastos del recorrido'}
+          >
+            {r.pagoEstado !== 'PAGADO' ? '🔒 Termina de pagar' : '✅ Finalizar y registrar gastos'}
+          </button>
         )}
         {r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && (
           <button className="btn-danger" onClick={cancelar}>Cancelar reserva</button>
@@ -1230,38 +1378,6 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
   const [nota, setNota] = useState(editando ? (pagoExistente.nota || '') : '')
 
   if (!r) return <div className="card">Reserva no encontrada.</div>
-
-  // Mensaje que se le envía al cliente informándole del abono.
-  const buildAbonoMessage = (res, montoAbono, nuevoPagado, nuevoRestante, pe, contacto) => {
-    const WAVE = '\uD83C\uDF0A'
-    const CHECK = '\u2705'
-    const CAL = '\uD83D\uDCC5'
-    const CARD = '\uD83D\uDCB3'
-    const PIN = '\uD83D\uDCCD'
-    const PHONE = '\uD83D\uDCF1'
-    const c = contacto || {}
-    const lines = [
-      '¡Hola ' + res.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva:',
-      '',
-      CHECK + ' *Reserva:* ' + res.id,
-      CAL + ' *Fecha del recorrido:* ' + fmtDate(res.fecha),
-      CARD + ' *Recibimos un abono de:* ' + fmtPeso(montoAbono),
-      CARD + ' *Abonado en total:* ' + fmtPeso(nuevoPagado),
-      CARD + ' *Saldo restante:* ' + fmtPeso(nuevoRestante),
-    ]
-    if (nuevoRestante > 0) {
-      lines.push('', '⚠️ *Importante:* la reserva debe estar *totalmente pagada antes de iniciar el recorrido*. Por favor completa el saldo pendiente antes de la salida.')
-    } else {
-      lines.push('', '✅ ¡Tu reserva ya está *pagada en su totalidad*! Te esperamos.')
-    }
-    if (pe) lines.push(PIN + ' *Punto de encuentro (muelle):* ' + pe)
-    if (c && (c.nombre || c.celular)) {
-      lines.push('', '👤 *Te vas a encontrar con:*')
-      if (c.nombre)  lines.push('• Nombre: ' + c.nombre)
-      if (c.celular) lines.push(PHONE + ' Celular: ' + c.celular)
-    }
-    return lines.join('\n')
-  }
 
   const submit = async () => {
     const m = toN(monto)
@@ -1353,10 +1469,17 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
         </div>
       ),
       onOk: () => setTab('edit-reserva', r.id),
-      onCancel: r.clientPhone ? () => openWA(r.clientPhone, buildAbonoMessage(
-        r, m, nuevoPagado, nuevoRestante, pe,
-        { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
-      )) : undefined,
+      onCancel: r.clientPhone ? () => {
+        // Lista de abonos actualizada: si estamos editando, payments ya incluye
+        // el pago con el patch. Si estamos creando, hay que agregarle newP.
+        const pagosParaMensaje = editando
+          ? payments
+          : [...payments, newP]
+        openWA(r.clientPhone, buildAbonoMessage(
+          r, pagosParaMensaje, pe,
+          { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' }
+        ))
+      } : undefined,
     })
   }
 
