@@ -373,12 +373,23 @@ export default function App() {
     try {
       const r = await saveData(payload)
       // Solo si el backend confirmó el guardado, persistimos en localStorage
-      // y refrescamos. Si la operación falla, dejamos el state local intacto
-      // para que el próximo polling lo sincronice con Sheets.
+      // y actualizamos el state local inmediatamente. Si la operación falla,
+      // dejamos el state local intacto para que el próximo polling lo
+      // sincronice con Sheets.
       const km = { clients: 'pn_c', reservations: 'pn_r', payments: 'pn_p', expenses: 'pn_e', config: 'pn_cfg' }
       Object.entries(payload).forEach(([k, v]) => {
         if (km[k]) try { localStorage.setItem(km[k], JSON.stringify(v)) } catch {}
       })
+      // Actualizar el state local con lo que acabamos de guardar, para que
+      // la siguiente operación vea el state actualizado sin tener que esperar
+      // al refresh (que es 1.5 s después). Si no, al encadenar operaciones
+      // (cancelar → crear → finalizar) el `SR` puede sobrescribir con un
+      // array incompleto y perder reservas.
+      if (payload.clients      !== undefined) setC(payload.clients)
+      if (payload.reservations !== undefined) setR(payload.reservations)
+      if (payload.payments     !== undefined) setP(payload.payments)
+      if (payload.expenses     !== undefined) setE(payload.expenses)
+      if (payload.config       !== undefined) setConfig(payload.config)
       setSt('ok'); setLS(new Date())
       savingRef.current = false
       setTimeout(() => refresh(true), 1500)
@@ -1019,6 +1030,13 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
     if (!nombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
     if (overPax) { infoModal('La cantidad de personas debe estar entre 1 y ' + MAX_PAX + '.'); return }
     if (toN(valor) <= 0) { infoModal('Indica un valor de reserva.'); return }
+    if (toN(valor) < 0) { infoModal('El valor de la reserva no puede ser negativo.'); return }
+    if (toN(abono) < 0) { infoModal('El abono inicial no puede ser negativo.'); return }
+    if (toN(personas) < 0) { infoModal('La cantidad de personas no puede ser negativa.'); return }
+    if (toN(abono) > toN(valor)) {
+      infoModal('El abono inicial de ' + fmtPeso(toN(abono)) + ' supera el valor de la reserva (' + fmtPeso(toN(valor)) + '). Corrige el monto.')
+      return
+    }
 
     // El cliente se reutiliza si ya existe; si no, se da de alta.
     let nextClients = clients
@@ -1119,11 +1137,24 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Valor total</label>
-          <input type="number" className="inp" placeholder="0" value={valor} onChange={e => setValor(e.target.value)} />
+          <input type="number" min="0" step="any" className="inp" placeholder="0" value={valor} onChange={e => {
+            const v = e.target.value
+            if (v === '' || v === '-') { setValor(''); return }
+            const n = Number(v)
+            if (isNaN(n)) return
+            setValor(n < 0 ? '0' : String(n))
+          }} />
         </div>
         <div className="card">
           <label className="lbl">Abono inicial</label>
-          <input type="number" className="inp" placeholder="0" value={abono} onChange={e => setAbono(e.target.value)} />
+          <input type="number" min="0" max={valor || undefined} step="any" className="inp" placeholder="0" value={abono} onChange={e => {
+            const v = e.target.value
+            if (v === '' || v === '-') { setAbono(''); return }
+            const n = Number(v)
+            if (isNaN(n)) return
+            setAbono(n < 0 ? '0' : String(n))
+          }} />
+          {valor && toN(abono) > toN(valor) && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>⚠ El abono no puede superar el valor de la reserva ({fmtPeso(toN(valor))})</div>}
         </div>
       </div>
 
@@ -1143,7 +1174,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
 /* ══════════════════════════════════════════════════════════════
    EDITAR RESERVA (ficha de operación)
 ══════════════════════════════════════════════════════════════ */
-function EditReserva({ enriched, reservas, payments, expenses, config, clients, SC, SR, deleteReserva, deletePago, setTab, confirm, infoModal, tabExtra, goBack }) {
+function EditReserva({ enriched, reservas, payments, expenses, config, clients, SC, SR, SP, deleteReserva, deletePago, setTab, confirm, infoModal, tabExtra, goBack }) {
   const r = enriched.find(x => x.id === tabExtra)
   const [personas, setPersonas] = useState(r?.personas || 1)
   const [valor,    setValor]    = useState(String(r?.valor || 0))
@@ -1246,11 +1277,20 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
   ))
 
   const cancelar = () => {
-    confirm('¿Cancelar la reserva ' + r.id + '? El día se liberará.', async () => {
+    const pagosDeLaReserva = (Array.isArray(payments) ? payments : []).filter(p => String(p.reservaId) === String(r.id))
+    const msg = pagosDeLaReserva.length > 0
+      ? '¿Cancelar la reserva ' + r.id + '? Los ' + pagosDeLaReserva.length + ' abono(s) por ' + fmtPeso(pagosDeLaReserva.reduce((s, p) => s + toN(p.monto), 0)) + ' también se eliminarán. El día se liberará.'
+      : '¿Cancelar la reserva ' + r.id + '? El día se liberará.'
+    confirm(msg, async () => {
       const updated = { ...r, estadoOp: 'CANCELADA' }
       delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
       const sinEsta = (Array.isArray(reservas) ? reservas : []).filter(x => x.id !== r.id)
       await SR([...sinEsta, updated])
+      // Cascada: borrar también los ingresos (pagos) asociados a esta reserva,
+      // para que el dinero que se había abonado deje de contar en finanzas
+      // (porque ese ingreso se devuelve al cancelar).
+      const pagosRestantes = (Array.isArray(payments) ? payments : []).filter(p => String(p.reservaId) !== String(r.id))
+      await SP(pagosRestantes)
       if (r.calendarEventId) saveData({ action: 'deleteCalendarEvent', eventId: r.calendarEventId }).catch(() => {})
       setTab('reservas')
     })
@@ -1305,7 +1345,9 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
       )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button className="btn-sec" style={{ flex: 1 }} onClick={reWA}>📱 Reenviar WhatsApp</button>
+        {r.estadoOp !== 'FINALIZADA' && r.estadoOp !== 'CANCELADA' && (
+          <button className="btn-sec" style={{ flex: 1 }} onClick={reWA}>📱 Reenviar WhatsApp</button>
+        )}
         {!locked && <button className="btn-pri" style={{ flex: 1 }} onClick={save} disabled={overPax || dayBusyOther || pastCutoff}>Guardar</button>}
       </div>
 
@@ -1520,7 +1562,13 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
 
       <div className="card" style={{ marginBottom: 12 }}>
         <label className="lbl">Monto</label>
-        <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={e => setMonto(e.target.value)} autoFocus />
+        <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={e => {
+          const v = e.target.value
+          if (v === '' || v === '-') { setMonto(''); return }
+          const n = Number(v)
+          if (isNaN(n)) return
+          setMonto(n < 0 ? '0' : String(n))
+        }} autoFocus />
         <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(editando ? Math.max(0, r.valor - (r.totalPagado - toN(pagoExistente.monto))) : r.totalRestante)}</b> (saldo pendiente)</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -2218,7 +2266,13 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
               <label className="lbl">Monto</label>
-              <input type="number" min="0" max={ingResta || undefined} step="any" className="inp" placeholder="0" value={ingMonto} onChange={e => setIngMonto(e.target.value)} autoFocus disabled={ingPagada} />
+              <input type="number" min="0" max={ingResta || undefined} step="any" className="inp" placeholder="0" value={ingMonto} onChange={e => {
+                const v = e.target.value
+                if (v === '' || v === '-') { setIngMonto(''); return }
+                const n = Number(v)
+                if (isNaN(n)) return
+                setIngMonto(n < 0 ? '0' : String(n))
+              }} autoFocus disabled={ingPagada} />
               {!ingPagada && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(ingResta)}</b></div>}
             </div>
             <div>
