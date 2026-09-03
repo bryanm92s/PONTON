@@ -87,11 +87,13 @@ function doPost(e) {
       idsValidosReservas = new Set(reservasEnSheets.map(r => r.id));
     }
     if (b.payments !== undefined) {
-      const limpios = b.payments.filter(p => idsValidosReservas.has(p.reservaId));
+      // Preservar los pagos manuales (sin reservaId) además de los que
+      // correspondan a una reserva existente.
+      const limpios = b.payments.filter(p => !p.reservaId || idsValidosReservas.has(p.reservaId));
       writeSheet(ss, 'payments', limpios);
     }
     if (b.expenses !== undefined) {
-      const limpios = b.expenses.filter(e => idsValidosReservas.has(e.reservaId));
+      const limpios = b.expenses.filter(e => !e.reservaId || idsValidosReservas.has(e.reservaId));
       writeSheet(ss, 'expenses', limpios);
     }
 

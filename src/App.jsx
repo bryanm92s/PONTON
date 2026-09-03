@@ -272,8 +272,10 @@ export default function App() {
       // reserva eliminada (p.ej. porque el cascade falló o la app se cerró
       // a mitad de operación), lo descartamos y lo persistimos.
       const idsValidos = new Set(rsv.map(r => r.id))
-      const payLimpio = pay.filter(p => idsValidos.has(p.reservaId))
-      const expLimpio = exp.filter(e => idsValidos.has(e.reservaId))
+      // Preservar los pagos/gastos manuales (sin reservaId) además de los
+      // que sí correspondan a una reserva existente.
+      const payLimpio = pay.filter(p => !p.reservaId || idsValidos.has(p.reservaId))
+      const expLimpio = exp.filter(e => !e.reservaId || idsValidos.has(e.reservaId))
       setP(payLimpio)
       setE(expLimpio)
       // Si se descartaron huérfanos, persistimos la limpieza en Sheets.
