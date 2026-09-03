@@ -900,7 +900,7 @@ function CalendarView({ enriched, setTab }) {
   const grupos = {
     hoy:       enriched.filter(r => r.fecha === todayD),
     futuras:   enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA'),
-    pasadas:   enriched.filter(r => r.fecha < todayD || r.estadoOp === 'FINALIZADA' || r.estadoOp === 'CANCELADA')
+    pasadas:   enriched.filter(r => r.fecha < todayD || r.estadoOp === 'FINALIZADA')
       .slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
   }
 
