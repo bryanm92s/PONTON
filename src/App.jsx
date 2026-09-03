@@ -2181,7 +2181,7 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
       infoModal('No se puede eliminar la categoría "' + cat + '" porque tiene ' + count + ' gasto(s) asociado(s).')
       return
     }
-    confirm('¿Eliminar la categoría "' + cat + '"? Las predicategorías predeterminadas se pueden restaurar borrando esta app del almacenamiento.', () => {
+    confirm('¿Eliminar la categoría "' + cat + '"? Esta acción no se puede deshacer.', () => {
       const nextOcultas = Array.from(new Set([...ocultas, cat]))
       try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(nextOcultas)) } catch {}
       setOcultas(nextOcultas)

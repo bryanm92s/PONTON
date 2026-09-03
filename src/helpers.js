@@ -206,8 +206,11 @@ export const normalizeCategoria = raw => {
 // Devuelve la lista de categorías únicas a partir de los gastos existentes,
 // más las predeterminadas que aún no estén presentes.
 export const categoriasDeGastos = (expenses) => {
-  const base = ['tripulación', 'administración', 'combustible', 'otros']
-  const set = new Set(base)
+  // Solo categorías que tengan al menos un gasto. Las predeterminadas
+  // (Tripulación, Administración, Combustible, Otros) ya NO se incluyen
+  // automáticamente; el usuario debe crearlas explícitamente al registrar
+  // un gasto.
+  const set = new Set()
   ;(Array.isArray(expenses) ? expenses : []).forEach(e => {
     const c = normalizeCategoria(e.categoria)
     if (c) set.add(c)

@@ -192,15 +192,16 @@ describe('categoriasDeGastos', () => {
     ])
     expect(cats).toContain('Mantenimiento')
     expect(cats).toContain('Arriendo')
-    expect(cats).toContain('tripulación')
-    expect(cats).toContain('administración')
-    expect(cats).toContain('combustible')
-    expect(cats).toContain('otros')
+    // Sin predeterminadas automáticas
+    expect(cats).not.toContain('tripulación')
+    expect(cats).not.toContain('administración')
+    expect(cats).not.toContain('combustible')
+    expect(cats).not.toContain('otros')
     // Sin duplicados
     expect(new Set(cats).size).toBe(cats.length)
   })
   it('funciona con expenses vacío o null', () => {
-    expect(categoriasDeGastos([])).toEqual(['tripulación', 'administración', 'combustible', 'otros'])
-    expect(categoriasDeGastos(null)).toEqual(['tripulación', 'administración', 'combustible', 'otros'])
+    expect(categoriasDeGastos([])).toEqual([])
+    expect(categoriasDeGastos(null)).toEqual([])
   })
 })
