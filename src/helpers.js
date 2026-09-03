@@ -195,10 +195,12 @@ export const nextReservaId = (reservas, contadorPersistido) => {
 // resto van en minúscula, sin importar cómo lo escriba el usuario.
 // 'Mantenimiento' → 'mantenimiento', 'COMBUSTIBLE' → 'combustible', 'Arriendo' → 'arriendo'
 export const normalizeCategoria = raw => {
-  const s = String(raw || '').trim().toLowerCase()
+  let s = String(raw || '').trim().toLowerCase()
   if (!s) return ''
   // Compacta espacios múltiples y los reemplaza por uno solo.
-  return s.replace(/\s+/g, ' ')
+  s = s.replace(/\s+/g, ' ')
+  // Primera letra en mayúscula, el resto en minúscula.
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 // Devuelve la lista de categorías únicas a partir de los gastos existentes,

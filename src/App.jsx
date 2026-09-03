@@ -2065,7 +2065,7 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
         ) : (
           <>
             <input className="inp" placeholder="Ej. mantenimiento, arriendo…" value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} />
-            <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Se guardará como: <b>{normalizeCategoria(nuevaCat) || '—'}</b> (todo en minúscula)</div>
+            <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Se guardará como: <b>{normalizeCategoria(nuevaCat) || '—'}</b> (primera letra mayúscula, resto minúscula)</div>
             <button className="btn-sec" style={{ width: '100%', marginTop: 8 }} onClick={() => { setUsarNueva(false); setNuevaCat('') }}>← Elegir de la lista</button>
           </>
         )}

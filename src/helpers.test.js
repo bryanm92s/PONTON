@@ -166,15 +166,15 @@ describe('MAX_PAX', () => {
 })
 
 describe('normalizeCategoria', () => {
-  it('toda la cadena va en minúscula sin importar la entrada', () => {
-    expect(normalizeCategoria('Mantenimiento')).toBe('mantenimiento')
-    expect(normalizeCategoria('COMBUSTIBLE')).toBe('combustible')
-    expect(normalizeCategoria('Arriendo')).toBe('arriendo')
-    expect(normalizeCategoria('compra de repuestos')).toBe('compra de repuestos')
+  it('primera letra en mayúscula, resto en minúsculas', () => {
+    expect(normalizeCategoria('Mantenimiento')).toBe('Mantenimiento')
+    expect(normalizeCategoria('COMBUSTIBLE')).toBe('Combustible')
+    expect(normalizeCategoria('Arriendo')).toBe('Arriendo')
+    expect(normalizeCategoria('compra de repuestos')).toBe('Compra de repuestos')
   })
   it('compacta espacios múltiples y recorta extremos', () => {
-    expect(normalizeCategoria('  Almuerzo  ')).toBe('almuerzo')
-    expect(normalizeCategoria('a   b   c')).toBe('a b c')
+    expect(normalizeCategoria('  Almuerzo  ')).toBe('Almuerzo')
+    expect(normalizeCategoria('a   b   c')).toBe('A b c')
   })
   it('devuelve "" para entradas vacías o sin sentido', () => {
     expect(normalizeCategoria('')).toBe('')
@@ -190,8 +190,8 @@ describe('categoriasDeGastos', () => {
       { id: '2', categoria: 'ARRIENDO',      monto: 200 },
       { id: '3', categoria: 'Mantenimiento', monto: 50 },
     ])
-    expect(cats).toContain('mantenimiento')
-    expect(cats).toContain('arriendo')
+    expect(cats).toContain('Mantenimiento')
+    expect(cats).toContain('Arriendo')
     expect(cats).toContain('tripulación')
     expect(cats).toContain('administración')
     expect(cats).toContain('combustible')
