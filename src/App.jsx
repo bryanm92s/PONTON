@@ -1921,7 +1921,17 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
     if (!nNombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
     const phone = nCelular.replace(/\D/g, '')
     if (phone && clients.some(c => (c.celular || '').replace(/\D/g, '') === phone)) {
-      infoModal('Ya existe un cliente con ese celular.'); return
+      // Cerramos primero el modal local de "Nuevo cliente" para que el
+      // mensaje de error (que es un modal global) quede visible por encima
+      // y no quede atrapado detrás.
+      setShowNew(false)
+      setNNombre(''); setNCelular('')
+      // Damos un tick para que el modal local se desmonte antes de
+      // mostrar el modal global.
+      setTimeout(() => {
+        infoModal('Ya existe un cliente con ese celular. No es posible crear otro cliente con el mismo número.')
+      }, 50)
+      return
     }
     const newC = { id: uid(), nombre: capWords(nNombre), celular: phone, createdAt: localNowISO() }
     await SC([...clients, newC])
