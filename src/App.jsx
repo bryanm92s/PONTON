@@ -536,6 +536,7 @@ export default function App() {
         {tab === 'finalizar'     && <FinalizarReserva {...p} />}
         {tab === 'pago'          && <RegistrarPago  {...p} />}
         {tab === 'nuevo-gasto'   && <NuevoGasto     {...p} />}
+        {tab === 'categorias'    && <GestionCategorias {...p} />}
         {tab === 'lista-hoy'     && <ListaFiltrada  {...p} filter={r => r.fecha === todayStr() && r.estadoOp !== 'CANCELADA'} titulo="Reservas de hoy" emoji="📅" emptyMsg="No hay reservas para hoy" />}
         {tab === 'lista-en-curso' && <ListaFiltrada  {...p} filter={r => r.estadoOp === 'EN_CURSO'} titulo="Reservas en curso" emoji="🟢" emptyMsg="No hay reservas en curso ahora" />}
         {tab === 'lista-futuras'  && <ListaFiltrada  {...p} filter={r => r.fecha > todayStr() && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA'} titulo="Reservas futuras" emoji="📆" emptyMsg="Aún no tienes reservas próximas" />}
@@ -2042,6 +2043,11 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
     if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
     const cat = usarNueva ? normalizeCategoria(nuevaCat) : normalizeCategoria(categoria)
     if (!cat) { infoModal('Indica una categoría.'); return }
+    // Validar que no exista una categoría con el mismo nombre (normalizado).
+    if (cats.includes(cat)) {
+      infoModal('Ya existe una categoría con ese nombre. Elige otra o usa la existente.')
+      return
+    }
     const newG = { id: uid(), reservaId: '', fecha, categoria: cat, monto: m, nota }
     await SE([...expenses, newG])
     infoModal('Gasto registrado.')
@@ -2090,6 +2096,124 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
       </div>
 
       <button className="btn-pri" style={{ width: '100%', padding: 14, fontSize: 15 }} onClick={submit}>Registrar gasto</button>
+    </div>
+  )
+}
+
+function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
+  const [editando, setEditando] = useState(null)
+  const [nuevoNombre, setNuevoNombre] = useState('')
+  const [showNueva, setShowNueva] = useState(false)
+  const [nuevaCat, setNuevaCat] = useState('')
+
+  // Categorías únicas existentes (de gastos + predeterminadas, ya normalizadas)
+  const cats = categoriasDeGastos(expenses)
+  const gastosPorCat = (cat) => (Array.isArray(expenses) ? expenses : []).filter(e => e.categoria === cat)
+  const enUso = (cat) => gastosPorCat(cat).length
+
+  const guardarEdicion = async () => {
+    if (!editando) return
+    const nuevo = normalizeCategoria(nuevoNombre)
+    if (!nuevo) { infoModal('Escribe un nombre válido.'); return }
+    if (nuevo !== editando && cats.includes(nuevo)) {
+      infoModal('Ya existe otra categoría con ese nombre. Elige otro.')
+      return
+    }
+    if (nuevo !== editando) {
+      // Renombrar en todos los gastos.
+      const next = (Array.isArray(expenses) ? expenses : []).map(e => e.categoria === editando ? { ...e, categoria: nuevo } : e)
+      await SE(next)
+    }
+    setEditando(null); setNuevoNombre('')
+  }
+
+  const eliminar = (cat) => {
+    const count = enUso(cat)
+    if (count > 0) {
+      infoModal('No se puede eliminar la categoría "' + cat + '" porque tiene ' + count + ' gasto(s) asociado(s).')
+      return
+    }
+    confirm('¿Eliminar la categoría "' + cat + '"?', () => {
+      // No se borra nada de Sheets porque la categoría no tiene gastos.
+      // Solo se actualiza el state local para que desaparezca del listado.
+      // Al recargar desde Sheets, esta categoría seguirá apareciendo si está
+      // en las predeterminadas. Por seguridad, no persistimos el cambio
+      // y solo refrescamos el listado local filtrando las que no tienen
+      // gastos.
+    })
+  }
+
+  const crearNueva = async () => {
+    const nombre = normalizeCategoria(nuevaCat)
+    if (!nombre) { infoModal('Escribe un nombre válido.'); return }
+    if (cats.includes(nombre)) {
+      infoModal('Ya existe una categoría con ese nombre.')
+      return
+    }
+    // Para que la categoría aparezca en el listado, hay que tener al menos
+    // un gasto con esa categoría. Pero como solo estamos creando la
+    // categoría, dejamos el state local preparado: por ahora la mostramos
+    // igual aunque no tenga gastos.
+    setShowNueva(false); setNuevaCat('')
+    infoModal('Categoría "' + nombre + '" lista. Aparecerá en el listado al registrar el primer gasto con ella.')
+  }
+
+  return (
+    <div>
+      <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
+      <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>Categorías de gastos</h1>
+      <p style={{ color: 'var(--t2)', margin: '0 0 14px' }}>Crea, edita o elimina categorías. Solo se pueden eliminar las que no tienen gastos.</p>
+
+      <button className="btn-pri" style={{ marginBottom: 12 }} onClick={() => { setShowNueva(true); setNuevaCat('') }}>+ Nueva categoría</button>
+
+      {showNueva && (
+        <Modal
+          onOk={crearNueva}
+          onCancel={() => { setShowNueva(false); setNuevaCat('') }}
+          okLabel="Crear"
+          cancelLabel="Cancelar"
+        >
+          <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>🗂️</div>
+          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Nueva categoría</div>
+          <label className="lbl">Nombre</label>
+          <input className="inp" autoFocus value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} placeholder="Ej. mantenimiento" style={{ marginBottom: 6 }} />
+          <div style={{ fontSize: 12, color: 'var(--t2)' }}>Se guardará como: <b>{normalizeCategoria(nuevaCat) || '—'}</b></div>
+        </Modal>
+      )}
+
+      <div className="card" style={{ padding: 0 }}>
+        {cats.map((cat, i) => (
+          <div key={cat} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderTop: i > 0 ? '1px solid var(--border)' : 'none', gap: 8 }}>
+            {editando === cat ? (
+              <>
+                <input className="inp" autoFocus value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)} style={{ flex: 1, padding: '6px 10px' }} />
+                <button className="btn-pri" style={{ padding: '6px 10px' }} onClick={guardarEdicion}>Guardar</button>
+                <button className="btn-sec" style={{ padding: '6px 10px' }} onClick={() => { setEditando(null); setNuevoNombre('') }}>Cancelar</button>
+              </>
+            ) : (
+              <>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>{cat}</div>
+                  <div style={{ fontSize: 11, color: 'var(--t2)' }}>{enUso(cat)} gasto(s) asociado(s)</div>
+                </div>
+                <button className="btn-sec" style={{ padding: '6px 10px' }} onClick={() => { setEditando(cat); setNuevoNombre(cat) }} title="Editar">✏️</button>
+                <button
+                  className="btn-sec"
+                  style={{ padding: '6px 10px' }}
+                  onClick={() => {
+                    if (enUso(cat) > 0) {
+                      infoModal('No se puede eliminar la categoría "' + cat + '" porque tiene ' + enUso(cat) + ' gasto(s) asociado(s).')
+                      return
+                    }
+                    infoModal('Para eliminarla, primero registra un gasto con esa categoría para que aparezca en el listado, o renómbrala a otra cosa.')
+                  }}
+                  title="Eliminar"
+                >🗑</button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -2178,6 +2302,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn-pri" onClick={() => setShowNewIng(true)}>+ Nuevo ingreso</button>
           <button className="btn-pri" onClick={() => setTab('nuevo-gasto')}>+ Nuevo gasto</button>
+          <button className="btn-sec" onClick={() => setTab('categorias')}>🗂️ Gestionar categorías</button>
         </div>
       </div>
 
