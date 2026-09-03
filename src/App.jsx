@@ -717,6 +717,8 @@ function GS() { return <style>{`
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.95)}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   .fade-up{animation:fadeUp .25s ease both}
+  @keyframes fa-beat{0%,90%{transform:scale(1)}45%{transform:scale(var(--fa-beat-scale,1.25))}}
+  .fa-beat{animation:fa-beat 1.5s ease-in-out infinite}
 
   /* ── Scrollbar sutil ────────────────────────────── */
   ::-webkit-scrollbar{width:8px;height:8px}
@@ -942,7 +944,23 @@ function CalendarView({ enriched, setTab }) {
                 onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}
               >
                 {day}
-                {r && <span style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: 3, background: s.dot }} />}
+                {r && r.estadoOp === 'EN_CURSO' && (
+                  <span
+                    className="fa-solid fa-circle-dot fa-beat"
+                    title="En curso"
+                    style={{
+                      position: 'absolute',
+                      top: 3, right: 3,
+                      color: '#9A1F1F',
+                      fontSize: 12,
+                      lineHeight: 1,
+                      display: 'inline-block',
+                    }}
+                  >{'●'}</span>
+                )}
+                {r && r.estadoOp !== 'EN_CURSO' && (
+                  <span style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: 3, background: s.dot }} />
+                )}
               </button>
             )
           })}
