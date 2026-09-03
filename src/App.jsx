@@ -2043,8 +2043,9 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
     if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
     const cat = usarNueva ? normalizeCategoria(nuevaCat) : normalizeCategoria(categoria)
     if (!cat) { infoModal('Indica una categoría.'); return }
-    // Validar que no exista una categoría con el mismo nombre (normalizado).
-    if (cats.includes(cat)) {
+    // Solo validar duplicados cuando el usuario está CREANDO una nueva
+    // categoría. Si selecciona una existente del dropdown, debe poder usarla.
+    if (usarNueva && cats.includes(cat)) {
       infoModal('Ya existe una categoría con ese nombre. Elige otra o usa la existente.')
       return
     }
@@ -2211,13 +2212,7 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
                 <button
                   className="btn-sec"
                   style={{ padding: '6px 10px' }}
-                  onClick={() => {
-                    if (enUso(cat) > 0) {
-                      infoModal('No se puede eliminar la categoría "' + cat + '" porque tiene ' + enUso(cat) + ' gasto(s) asociado(s).')
-                      return
-                    }
-                    infoModal('Para eliminarla, primero registra un gasto con esa categoría para que aparezca en el listado, o renómbrala a otra cosa.')
-                  }}
+                  onClick={() => eliminar(cat)}
                   title="Eliminar"
                 >🗑</button>
               </>
