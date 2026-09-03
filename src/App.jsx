@@ -1128,8 +1128,20 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
 
       <div className="card" style={{ marginBottom: 12 }}>
         <label className="lbl">Cliente</label>
-        <input className="inp" placeholder="Nombre" value={nombre} onChange={e => { setNombre(e.target.value); setNombreTocado(true) }} style={{ marginBottom: 8 }} />
-        <input className="inp" placeholder="Celular" inputMode="tel" value={celular} onChange={e => setCelular(e.target.value)} />
+        <input
+          className="inp"
+          placeholder="Celular (sin espacios, ej. 3223992340)"
+          inputMode="tel"
+          value={celular}
+          onChange={e => { setCelular(e.target.value); setNombreTocado(false) }}
+          style={{ marginBottom: 8 }}
+        />
+        <input
+          className="inp"
+          placeholder="Nombre del cliente"
+          value={nombre}
+          onChange={e => { setNombre(e.target.value); setNombreTocado(true) }}
+        />
         {clienteExistente
           ? <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6 }}>✅ Cliente existente — datos autocompletados (no se duplicará)</div>
           : (phone && phone.length >= 7 && !clienteExistente
