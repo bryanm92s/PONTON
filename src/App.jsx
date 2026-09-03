@@ -1493,10 +1493,12 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
     const pagosActualizados = [...sinDuplicados, newP]
     await SP(pagosActualizados)
 
-    // Calculamos el total desde la lista actualizada (que ya tiene el nuevo
-    // pago) para evitar duplicar el conteo si `r.totalPagado` (de `enriched`)
-    // ya incluía el pago por un re-render.
-    const abonadoActualizado = pagosActualizados.reduce((s, p) => s + toN(p.monto), 0)
+    // Calculamos el total desde la lista actualizada (filtrada por esta
+    // reserva) para evitar duplicar el conteo y para no sumar abonos de
+    // otras reservas. Si `r.totalPagado` (de `enriched`) ya incluía el pago
+    // por un re-render, también evitamos ese doble conteo.
+    const pagosDeEstaReserva = pagosActualizados.filter(p => String(p.reservaId) === String(r.id))
+    const abonadoActualizado = pagosDeEstaReserva.reduce((s, p) => s + toN(p.monto), 0)
     const nuevoPagado = abonadoActualizado
     const nuevoRestante = Math.max(0, r.valor - nuevoPagado)
     const completado = nuevoPagado >= r.valor
