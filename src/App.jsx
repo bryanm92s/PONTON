@@ -1451,10 +1451,16 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
             className="btn-pri"
             style={{ flex: 1, minWidth: 140, background: 'var(--green)' }}
             onClick={finalizar}
-            disabled={r.pagoEstado !== 'PAGADO'}
-            title={r.pagoEstado !== 'PAGADO' ? 'Debes terminar de pagar la reserva antes de finalizarla' : 'Finalizar la reserva y registrar los gastos del recorrido'}
+            disabled={r.pagoEstado !== 'PAGADO' || r.fecha > todayStr()}
+            title={
+              r.fecha > todayStr()
+                ? 'Solo puedes finalizar la reserva después de la fecha del recorrido'
+                : (r.pagoEstado !== 'PAGADO'
+                    ? 'Debes terminar de pagar la reserva antes de finalizarla'
+                    : 'Finalizar la reserva y registrar los gastos del recorrido')
+            }
           >
-            {r.pagoEstado !== 'PAGADO' ? '🔒 Termina de pagar' : '✅ Finalizar y registrar gastos'}
+            {r.pagoEstado !== 'PAGADO' ? '🔒 Termina de pagar' : (r.fecha > todayStr() ? '🔒 Espera la fecha' : '✅ Finalizar y registrar gastos')}
           </button>
         )}
         {r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && (
