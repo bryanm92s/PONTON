@@ -2105,6 +2105,8 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
 
   // Filtros de finanzas (mostrados en pestañas: mes / día / rango)
   const [filtroActivo, setFiltroActivo] = useState('mes')
+  const [pagIng, setPagIng] = useState(0)
+  const [pagGas, setPagGas] = useState(0)
   const [mes,        setMes]        = useState(monthStr())
   const [dia,        setDia]        = useState(todayStr())
   const [rangoDesde, setRangoDesde] = useState(() => {
@@ -2239,41 +2241,83 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
       <details open className="card" style={{ marginBottom: 12 }}>
         <summary style={{ fontWeight: 700, cursor: 'pointer' }}>💰 Ingresos ({ingList.length})</summary>
         {ingList.length === 0 && <div style={{ color: 'var(--t2)', padding: 8 }}>Sin ingresos aún</div>}
-        {ingList.map(p => {
-          const r = enriched.find(x => x.id === p.reservaId)
+        {(() => {
+          const PAGE = 10
+          const total = ingList.length
+          const pages = Math.max(1, Math.ceil(total / PAGE))
+          if (pagIng >= pages) setPagIng(0)
+          const start = pagIng * PAGE
+          const slice = ingList.slice(start, start + PAGE)
           return (
-            <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
-              <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
-                <span>{fmtDate(p.fecha)} · <b>{(p.reservaId || '').replace(/^RES-/, 'RES-') + (r ? ' · ' + r.clientName : '')}</b> {p.metodo ? '· ' + p.metodo : ''}</span>
-                {p.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{p.nota}</div> : null}
-              </div>
-              <b style={{ color: 'var(--green)' }}>+{fmtPeso(p.monto)}</b>
-            </div>
+            <>
+              {slice.map(p => {
+                const r = enriched.find(x => x.id === p.reservaId)
+                return (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
+                    <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
+                      <span>{fmtDate(p.fecha)} · <b>{(p.reservaId || '').replace(/^RES-/, 'RES-') + (r ? ' · ' + r.clientName : '')}</b> {p.metodo ? '· ' + p.metodo : ''}</span>
+                      {p.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{p.nota}</div> : null}
+                    </div>
+                    <b style={{ color: 'var(--green)' }}>+{fmtPeso(p.monto)}</b>
+                  </div>
+                )
+              })}
+              {pages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12 }}>
+                  <button className="btn-sec" style={{ padding: '4px 8px' }} disabled={pagIng === 0} onClick={() => setPagIng(pagIng - 1)}>‹ Anterior</button>
+                  {Array.from({ length: pages }, (_, i) => (
+                    <button key={i} className={pagIng === i ? 'btn-pri' : 'btn-sec'} style={{ padding: '4px 10px', minWidth: 30 }} onClick={() => setPagIng(i)}>{i + 1}</button>
+                  ))}
+                  <button className="btn-sec" style={{ padding: '4px 8px' }} disabled={pagIng >= pages - 1} onClick={() => setPagIng(pagIng + 1)}>Siguiente ›</button>
+                </div>
+              )}
+            </>
           )
-        })}
+        })()}
       </details>
 
       <details open className="card" style={{ marginBottom: 12 }}>
         <summary style={{ fontWeight: 700, cursor: 'pointer' }}>💸 Gastos ({gasList.length})</summary>
         {gasList.length === 0 && <div style={{ color: 'var(--t2)', padding: 8 }}>Sin gastos aún</div>}
-        {gasList.map(g => {
-          const r = enriched.find(x => x.id === g.reservaId)
-          const esDelViaje = !!g.reservaId
+        {(() => {
+          const PAGE = 10
+          const total = gasList.length
+          const pages = Math.max(1, Math.ceil(total / PAGE))
+          if (pagGas >= pages) setPagGas(0)
+          const start = pagGas * PAGE
+          const slice = gasList.slice(start, start + PAGE)
           return (
-            <div key={g.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
-              <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
-                <span>{fmtDate(g.fecha)} · <b>{g.categoria}</b>
-                  {esDelViaje ? <Badge bg="var(--primary-l)" fg="var(--primary-d)">viaje {g.reservaId}{r ? ' · ' + r.clientName : ''}</Badge> : <Badge bg="var(--gray-bg)" fg="var(--t2)">manual</Badge>}
-                </span>
-                {g.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{g.nota}</div> : null}
-              </div>
-              <b style={{ color: 'var(--red)' }}>−{fmtPeso(g.monto)}</b>
-              {!esDelViaje && (
-                <button onClick={() => confirm('¿Eliminar este gasto de ' + fmtPeso(g.monto) + '?', () => deleteGasto(g.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Eliminar gasto">🗑</button>
+            <>
+              {slice.map(g => {
+                const r = enriched.find(x => x.id === g.reservaId)
+                const esDelViaje = !!g.reservaId
+                return (
+                  <div key={g.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
+                    <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
+                      <span>{fmtDate(g.fecha)} · <b>{g.categoria}</b>
+                        {esDelViaje ? <Badge bg="var(--primary-l)" fg="var(--primary-d)">viaje {g.reservaId}{r ? ' · ' + r.clientName : ''}</Badge> : <Badge bg="var(--gray-bg)" fg="var(--t2)">manual</Badge>}
+                      </span>
+                      {g.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{g.nota}</div> : null}
+                    </div>
+                    <b style={{ color: 'var(--red)' }}>−{fmtPeso(g.monto)}</b>
+                    {!esDelViaje && (
+                      <button onClick={() => confirm('¿Eliminar este gasto de ' + fmtPeso(g.monto) + '?', () => deleteGasto(g.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Eliminar gasto">🗑</button>
+                    )}
+                  </div>
+                )
+              })}
+              {pages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12 }}>
+                  <button className="btn-sec" style={{ padding: '4px 8px' }} disabled={pagGas === 0} onClick={() => setPagGas(pagGas - 1)}>‹ Anterior</button>
+                  {Array.from({ length: pages }, (_, i) => (
+                    <button key={i} className={pagGas === i ? 'btn-pri' : 'btn-sec'} style={{ padding: '4px 10px', minWidth: 30 }} onClick={() => setPagGas(i)}>{i + 1}</button>
+                  ))}
+                  <button className="btn-sec" style={{ padding: '4px 8px' }} disabled={pagGas >= pages - 1} onClick={() => setPagGas(pagGas + 1)}>Siguiente ›</button>
+                </div>
               )}
-            </div>
+            </>
           )
-        })}
+        })()}
         {gasList.some(g => g.reservaId) && (
           <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 6 }}>
             Los gastos con badge <b>viaje</b> se generan al finalizar la reserva y solo se eliminan borrando la reserva.
