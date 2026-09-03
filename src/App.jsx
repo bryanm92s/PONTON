@@ -165,9 +165,12 @@ const buildAbonoMessage = (res, pagos, pe, contacto, nombreNegocio) => {
   const contactoNombre = c.nombre || ''
   const contactoPhone = String(c.celular || '').replace(/\D/g, '')
   const valor = toN(res.valor)
-  const abonado = (Array.isArray(pagos) ? pagos : []).reduce((s, p) => s + toN(p.monto), 0)
+  // Filtrar SOLO los pagos de esta reserva. Si pasan todos los pagos,
+  // sin el filtro se mezclan abonos de otras reservas en el mensaje.
+  const pagosDeEstaReserva = (Array.isArray(pagos) ? pagos : []).filter(p => String(p.reservaId) === String(res.id))
+  const abonado = pagosDeEstaReserva.reduce((s, p) => s + toN(p.monto), 0)
   const resta = Math.max(0, valor - abonado)
-  const lista = (Array.isArray(pagos) ? pagos : []).slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
+  const lista = pagosDeEstaReserva.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
   const isFirst = (i) => i === 0
   const totalCount = lista.length
   const lines = [
@@ -1483,12 +1486,18 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
     }
     const newP = { id: uid(), reservaId: r.id, fecha, monto: m, metodo, nota }
     // Construimos la lista de pagos actualizada INCLUYENDO el nuevo pago.
-    // Esto es lo que pasamos al WhatsApp para que el mensaje refleje el
-    // estado real, no los totales viejos que se calcularon antes del sync.
-    const pagosActualizados = [...payments, newP]
+    // Si `payments` ya tenía un pago con el mismo id, lo reemplazamos para
+    // evitar duplicados (esto pasa si React re-renderizó y el state ya tiene
+    // el nuevo pago antes de que se ejecute este `submit`).
+    const sinDuplicados = (Array.isArray(payments) ? payments : []).filter(p => p.id !== newP.id)
+    const pagosActualizados = [...sinDuplicados, newP]
     await SP(pagosActualizados)
 
-    const nuevoPagado = r.totalPagado + m
+    // Calculamos el total desde la lista actualizada (que ya tiene el nuevo
+    // pago) para evitar duplicar el conteo si `r.totalPagado` (de `enriched`)
+    // ya incluía el pago por un re-render.
+    const abonadoActualizado = pagosActualizados.reduce((s, p) => s + toN(p.monto), 0)
+    const nuevoPagado = abonadoActualizado
     const nuevoRestante = Math.max(0, r.valor - nuevoPagado)
     const completado = nuevoPagado >= r.valor
     const valorFmt = fmtPeso(r.valor)
