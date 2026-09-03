@@ -2103,7 +2103,8 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
   const [ingMetodo, setIngMetodo] = useState('Transferencia')
   const [ingNota, setIngNota] = useState('')
 
-  // Filtros de finanzas
+  // Filtros de finanzas (mostrados en pestañas: mes / día / rango)
+  const [filtroActivo, setFiltroActivo] = useState('mes')
   const [mes,        setMes]        = useState(monthStr())
   const [dia,        setDia]        = useState(todayStr())
   const [rangoDesde, setRangoDesde] = useState(() => {
@@ -2188,37 +2189,45 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
 
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Filtros</h3>
-
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <label className="lbl" style={{ margin: 0 }}>Por mes</label>
-            <input type="month" className="inp" value={mes} onChange={e => setMes(e.target.value)} style={{ maxWidth: 170 }} />
-          </div>
-          <Row label="Ingresos" val={'+' + fmtPeso(ingMes)} />
-          <Row label="Gastos"   val={'−' + fmtPeso(gasMes)} />
-          <Row label="Neto del mes" val={fmtPeso(ingMes - gasMes)} bold />
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+          {[['mes','Por mes'],['dia','Por día'],['rango','Por rango']].map(([k, lb]) => (
+            <button key={k} onClick={() => setFiltroActivo(k)} className={filtroActivo === k ? 'btn-pri' : 'btn-sec'} style={{ flex: 1, padding: '8px 10px' }}>{lb}</button>
+          ))}
         </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <label className="lbl" style={{ margin: 0 }}>Por día</label>
-            <input type="date" className="inp" value={dia} onChange={e => setDia(e.target.value)} style={{ maxWidth: 170 }} />
+        {filtroActivo === 'mes' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <label className="lbl" style={{ margin: 0 }}>Por mes</label>
+              <input type="month" className="inp" value={mes} onChange={e => setMes(e.target.value)} style={{ maxWidth: 170 }} />
+            </div>
+            <Row label="Ingresos" val={'+' + fmtPeso(ingMes)} />
+            <Row label="Gastos"   val={'−' + fmtPeso(gasMes)} />
+            <Row label="Neto del mes" val={fmtPeso(ingMes - gasMes)} bold />
           </div>
-          <Row label="Ingresos" val={'+' + fmtPeso(ingDia)} />
-          <Row label="Gastos"   val={'−' + fmtPeso(gasDia)} />
-          <Row label="Neto del día" val={fmtPeso(ingDia - gasDia)} bold />
-        </div>
-
-        <div>
-          <label className="lbl">Por rango</label>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-            <input type="date" className="inp" value={rangoDesde} onChange={e => setRangoDesde(e.target.value)} style={{ flex: 1 }} />
-            <input type="date" className="inp" value={rangoHasta} onChange={e => setRangoHasta(e.target.value)} style={{ flex: 1 }} />
+        )}
+        {filtroActivo === 'dia' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <label className="lbl" style={{ margin: 0 }}>Por día</label>
+              <input type="date" className="inp" value={dia} onChange={e => setDia(e.target.value)} style={{ maxWidth: 170 }} />
+            </div>
+            <Row label="Ingresos" val={'+' + fmtPeso(ingDia)} />
+            <Row label="Gastos"   val={'−' + fmtPeso(gasDia)} />
+            <Row label="Neto del día" val={fmtPeso(ingDia - gasDia)} bold />
           </div>
-          <Row label="Ingresos" val={'+' + fmtPeso(ingRango)} />
-          <Row label="Gastos"   val={'−' + fmtPeso(gasRango)} />
-          <Row label="Neto del rango" val={fmtPeso(ingRango - gasRango)} bold />
-        </div>
+        )}
+        {filtroActivo === 'rango' && (
+          <div>
+            <label className="lbl">Por rango</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+              <input type="date" className="inp" value={rangoDesde} onChange={e => setRangoDesde(e.target.value)} style={{ flex: 1 }} />
+              <input type="date" className="inp" value={rangoHasta} onChange={e => setRangoHasta(e.target.value)} style={{ flex: 1 }} />
+            </div>
+            <Row label="Ingresos" val={'+' + fmtPeso(ingRango)} />
+            <Row label="Gastos"   val={'−' + fmtPeso(gasRango)} />
+            <Row label="Neto del rango" val={fmtPeso(ingRango - gasRango)} bold />
+          </div>
+        )}
       </div>
 
       <details open className="card" style={{ marginBottom: 12 }}>
