@@ -2216,18 +2216,24 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             <Row label="Neto del día" val={fmtPeso(ingDia - gasDia)} bold />
           </div>
         )}
-        {filtroActivo === 'rango' && (
+        {filtroActivo === 'rango' && (() => {
+          const rangoInvalido = rangoDesde && rangoHasta && rangoDesde > rangoHasta
+          return (
           <div>
             <label className="lbl">Por rango</label>
             <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
               <input type="date" className="inp" value={rangoDesde} onChange={e => setRangoDesde(e.target.value)} style={{ flex: 1 }} />
               <input type="date" className="inp" value={rangoHasta} onChange={e => setRangoHasta(e.target.value)} style={{ flex: 1 }} />
             </div>
-            <Row label="Ingresos" val={'+' + fmtPeso(ingRango)} />
-            <Row label="Gastos"   val={'−' + fmtPeso(gasRango)} />
-            <Row label="Neto del rango" val={fmtPeso(ingRango - gasRango)} bold />
+            {rangoInvalido && <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 10, padding: 8, fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>⚠ La fecha inicial no puede ser mayor que la fecha final.</div>}
+            {!rangoInvalido && <>
+              <Row label="Ingresos" val={'+' + fmtPeso(ingRango)} />
+              <Row label="Gastos"   val={'−' + fmtPeso(gasRango)} />
+              <Row label="Neto del rango" val={fmtPeso(ingRango - gasRango)} bold />
+            </>}
           </div>
-        )}
+          )
+        })()}
       </div>
 
       <details open className="card" style={{ marginBottom: 12 }}>
