@@ -2105,9 +2105,17 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [showNueva, setShowNueva] = useState(false)
   const [nuevaCat, setNuevaCat] = useState('')
-
-  // Categorías únicas existentes (de gastos + predeterminadas, ya normalizadas)
-  const cats = categoriasDeGastos(expenses)
+  // Categorías que el usuario ha "eliminado" (solo las que no tienen gastos).
+  // Las persistimos en localStorage para que la eliminación sea duradera
+  // (incluso entre recargas de Sheets). Las predeterminadas que el usuario
+  // nunca use pueden eliminarse sin perderlas en Sheets.
+  const OCULTAS_KEY = 'pn_cats_ocultas'
+  const [ocultas, setOcultas] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(OCULTAS_KEY) || '[]') || [] } catch { return [] }
+  })
+  // Filtrar las categorías predeterminadas que el usuario ha ocultado.
+  const catsBase = categoriasDeGastos(expenses)
+  const cats = catsBase.filter(c => !ocultas.includes(c))
   const gastosPorCat = (cat) => (Array.isArray(expenses) ? expenses : []).filter(e => e.categoria === cat)
   const enUso = (cat) => gastosPorCat(cat).length
 
@@ -2123,6 +2131,12 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
       // Renombrar en todos los gastos.
       const next = (Array.isArray(expenses) ? expenses : []).map(e => e.categoria === editando ? { ...e, categoria: nuevo } : e)
       await SE(next)
+      // Si la categoría editada estaba en ocultas, mover la entrada al nuevo nombre.
+      if (ocultas.includes(editando)) {
+        const nextOcultas = ocultas.map(c => c === editando ? nuevo : c)
+        try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(nextOcultas)) } catch {}
+        setOcultas(nextOcultas)
+      }
     }
     setEditando(null); setNuevoNombre('')
   }
@@ -2133,27 +2147,24 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
       infoModal('No se puede eliminar la categoría "' + cat + '" porque tiene ' + count + ' gasto(s) asociado(s).')
       return
     }
-    confirm('¿Eliminar la categoría "' + cat + '"?', () => {
-      // No se borra nada de Sheets porque la categoría no tiene gastos.
-      // Solo se actualiza el state local para que desaparezca del listado.
-      // Al recargar desde Sheets, esta categoría seguirá apareciendo si está
-      // en las predeterminadas. Por seguridad, no persistimos el cambio
-      // y solo refrescamos el listado local filtrando las que no tienen
-      // gastos.
+    confirm('¿Eliminar la categoría "' + cat + '"? Las predicategorías predeterminadas se pueden restaurar borrando esta app del almacenamiento.', () => {
+      const nextOcultas = Array.from(new Set([...ocultas, cat]))
+      try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(nextOcultas)) } catch {}
+      setOcultas(nextOcultas)
     })
   }
 
   const crearNueva = async () => {
     const nombre = normalizeCategoria(nuevaCat)
     if (!nombre) { infoModal('Escribe un nombre válido.'); return }
-    if (cats.includes(nombre)) {
+    if (catsBase.includes(nombre)) {
       infoModal('Ya existe una categoría con ese nombre.')
       return
     }
     // Para que la categoría aparezca en el listado, hay que tener al menos
-    // un gasto con esa categoría. Pero como solo estamos creando la
-    // categoría, dejamos el state local preparado: por ahora la mostramos
-    // igual aunque no tenga gastos.
+    // un gasto con esa categoría. La guardamos en el listado de "ocultas
+    // pendientes" para que aparezca al menos con 0 gastos, y se quite al
+    // recibir el primer gasto (no es crítico, pero mejora la UX).
     setShowNueva(false); setNuevaCat('')
     infoModal('Categoría "' + nombre + '" lista. Aparecerá en el listado al registrar el primer gasto con ella.')
   }
