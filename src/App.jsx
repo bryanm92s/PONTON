@@ -881,8 +881,17 @@ function CalendarView({ enriched, setTab }) {
   // Paleta con más contraste para los estados del calendario.
   // Días bloqueados (pasado / hoy-9am) usan opacidad en lugar de un color gris
   // apagado, así el calendario se siente más vivo y se diferencian mejor.
+  // El estado visual de cada celda:
+  //   - Reserva cancelada o finalizada => día LIBRE (verde) porque la cancelación
+  //     liberó el día. Se muestra un badge discreto "✕" para que sepas que
+  //     hubo una reserva ahí.
+  //   - Reserva activa (PENDIENTE / CONFIRMADA / EN_CURSO) => día OCUPADO (rojo).
+  //   - Pasado / hoy-bloqueado => gris.
+  //   - Disponible => verde.
   const state = (r, blocked) => {
-    if (r)    return { bg: '#FCE4E4', fg: '#9A1F1F', border: '#E07A7A', dot: '#E07A7A' }     // ocupado
+    if (r && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA') {
+      return { bg: '#FCE4E4', fg: '#9A1F1F', border: '#E07A7A', dot: '#E07A7A' }            // ocupado
+    }
     if (blocked) return { bg: 'transparent', fg: 'var(--t2)', border: 'transparent', dot: null } // pasado
     return       { bg: '#D6F0DD', fg: '#1F6B3A', border: '#6FBE8A', dot: '#1F6B3A' }         // disponible
   }
