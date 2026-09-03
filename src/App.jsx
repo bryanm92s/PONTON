@@ -2244,7 +2244,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           return (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
               <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
-                <span>{fmtDate(p.fecha)} · <b>{p.reservaId}</b> {p.metodo ? '· ' + p.metodo : ''}</span>
+                <span>{fmtDate(p.fecha)} · <b>{(p.reservaId || '').replace(/^RES-/, 'RES-') + (r ? ' · ' + r.clientName : '')}</b> {p.metodo ? '· ' + p.metodo : ''}</span>
                 {p.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{p.nota}</div> : null}
               </div>
               <b style={{ color: 'var(--green)' }}>+{fmtPeso(p.monto)}</b>
@@ -2263,7 +2263,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             <div key={g.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
               <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
                 <span>{fmtDate(g.fecha)} · <b>{g.categoria}</b>
-                  {esDelViaje ? <Badge bg="var(--primary-l)" fg="var(--primary-d)">viaje {g.reservaId}</Badge> : <Badge bg="var(--gray-bg)" fg="var(--t2)">manual</Badge>}
+                  {esDelViaje ? <Badge bg="var(--primary-l)" fg="var(--primary-d)">viaje {g.reservaId}{r ? ' · ' + r.clientName : ''}</Badge> : <Badge bg="var(--gray-bg)" fg="var(--t2)">manual</Badge>}
                 </span>
                 {g.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{g.nota}</div> : null}
               </div>
