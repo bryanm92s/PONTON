@@ -551,14 +551,21 @@ export default function App() {
         backdropFilter: 'blur(14px)',
         WebkitBackdropFilter: 'blur(14px)',
         borderTop: '1px solid var(--glass-bd)',
-        color: 'var(--t2)', fontSize: 11, letterSpacing: '.04em',
+        color: 'var(--t2)', fontSize: 12, letterSpacing: '.02em',
       }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <span>{BIZ_EMOJI} La Luz de Emi © {new Date().getFullYear()}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 16 }}>{BIZ_EMOJI}</span>
+            <span>{toFancyScript((config && config.negocioNombre) || BIZ_NAME)}</span>
+          </span>
           <span style={{ opacity: 0.5 }}>|</span>
-          <span>Bryan Morales</span>
+          <span>© {new Date().getFullYear()} Bryan Morales</span>
           <span style={{ opacity: 0.5 }}>|</span>
-          <span title="Colombia" aria-label="Colombia" style={{ fontSize: 14, lineHeight: 1 }}>🇨🇴</span>
+          <svg width="20" height="14" viewBox="0 0 20 14" style={{ verticalAlign: 'middle', borderRadius: 2, display: 'inline-block', flexShrink: 0 }} role="img" aria-label="Bandera de Colombia">
+            <rect width="20" height="14" fill="#FCD116"></rect>
+            <rect y="7" width="20" height="7" fill="#003893"></rect>
+            <rect y="9.33" width="20" height="4.67" fill="#CE1126"></rect>
+          </svg>
         </span>
       </footer>
     </div>
@@ -899,8 +906,9 @@ function CalendarView({ enriched, setTab }) {
 
   // Acordeón: listas de reservas por estado para verlas sin tocar el calendario.
   const grupos = {
-    hoy:       enriched.filter(r => r.fecha === todayD),
-    futuras:   enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA'),
+    hoy:       enriched.filter(r => r.fecha === todayD).slice().sort((a, b) => (a.hora || '').localeCompare(b.hora || '')),
+    futuras:   enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
+      .slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
     pasadas:   enriched.filter(r => r.fecha < todayD || r.estadoOp === 'FINALIZADA')
       .slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
   }
@@ -1848,13 +1856,17 @@ function ReservasTab({ enriched, setTab }) {
         <h1 style={{ fontSize: 22, margin: 0, fontFamily: 'Georgia,serif' }}>Reservas</h1>
         <button className="btn-pri" onClick={() => setTab('new-reserva', today)}>+ Nueva</button>
       </div>
-      {Object.entries({
-        'Hoy':         grupos.hoy,
-        'En curso':    grupos.enCurso,
-        'Próximas':    grupos.futuras,
-        'Finalizadas': grupos.finalizadas,
-        'Canceladas':  grupos.canceladas,
-      }).map(([title, list]) => list.length === 0 ? null : (
+      {(() => {
+        const sortByFecha = (a, b) => (a.fecha || '').localeCompare(b.fecha || '')
+        const sortByFechaDesc = (a, b) => (b.fecha || '').localeCompare(a.fecha || '')
+        return {
+          'Hoy':         grupos.hoy,
+          'En curso':    grupos.enCurso,
+          'Próximas':    grupos.futuras.slice().sort(sortByFecha),
+          'Finalizadas': grupos.finalizadas.slice().sort(sortByFechaDesc),
+          'Canceladas':  grupos.canceladas.slice().sort(sortByFechaDesc),
+        }
+      })().map(([title, list]) => list.length === 0 ? null : (
         <details key={title} open style={{ marginBottom: 8 }}>
           <summary style={{ fontWeight: 700, padding: '8px 4px', cursor: 'pointer', color: 'var(--t2)' }}>{title} ({list.length})</summary>
           <div className="card" style={{ padding: 0 }}>
