@@ -1516,7 +1516,7 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
   const editando = !!pagoExistente
   const [monto, setMonto] = useState(editando ? String(pagoExistente.monto) : '')
   const [fecha, setFecha] = useState(editando ? (pagoExistente.fecha || todayStr()) : todayStr())
-  const [metodo, setMetodo] = useState(editando ? (pagoExistente.metodo || 'Transferencia') : 'Transferencia')
+  const [metodo, setMetodo] = useState(editando ? (pagoExistente.metodo || 'Efectivo') : 'Efectivo')
   const [nota, setNota] = useState(editando ? (pagoExistente.nota || '') : '')
 
   if (!r) return <div className="card">Reserva no encontrada.</div>
@@ -1664,11 +1664,11 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
           <label className="lbl">Método</label>
           <select className="inp" value={metodo} onChange={e => setMetodo(e.target.value)}>
             <option>Efectivo</option>
-            <option>Transferencia</option>
+            
             <option>Nequi</option>
             <option>Daviplata</option>
             <option>Bancolombia</option>
-            <option>Otro</option>
+            
           </select>
         </div>
       </div>
@@ -1962,6 +1962,7 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
       await SR(nextReservas)
     }
     closeEdit()
+    infoModal('Cliente "' + newNombre + '" modificado.')
   }
 
   const del = c => {
@@ -2068,14 +2069,22 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
 function ClientHistory({ clients, enriched, setTab, tabExtra, goBack }) {
   const c = clients.find(x => x.id === tabExtra)
   if (!c) return <div className="card">Cliente no encontrado</div>
+  // Ordenar por fecha más reciente de la reserva de primeras
   const list = enriched.filter(r => r.clientId === c.id)
+    .slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
   return (
     <div>
       <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
       <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>{c.nombre}</h1>
       <p style={{ color: 'var(--t2)', margin: '0 0 14px' }}>{c.celular}</p>
       {list.length === 0 && <div className="card" style={{ textAlign: 'center', color: 'var(--t2)' }}>Sin reservas aún</div>}
-      {list.map(r => <ReservaRow key={r.id} r={r} onClick={() => setTab('edit-reserva', r.id)} />)}
+      {list.map(r => (
+        <div key={r.id} className="card" style={{ marginBottom: 8, padding: '10px 14px', cursor: 'pointer' }}
+          onClick={() => setTab('edit-reserva', r.id)}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{fmtTime(r.hora)} · {r.personas} pers · {fmtPeso(r.valor)}</div>
+          <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2 }}>{fmtDate(r.fecha)}</div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -2299,7 +2308,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
   const [ingReservaId, setIngReservaId] = useState('')
   const [ingMonto, setIngMonto] = useState('')
   const [ingFecha, setIngFecha] = useState(todayStr())
-  const [ingMetodo, setIngMetodo] = useState('Transferencia')
+  const [ingMetodo, setIngMetodo] = useState('Efectivo')
   const [ingNota, setIngNota] = useState('')
 
   // Filtros de finanzas (mostrados en pestañas: mes / día / rango)
@@ -2451,10 +2460,11 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             <>
               {slice.map(p => {
                 const r = enriched.find(x => x.id === p.reservaId)
+                const cliente = r ? r.clientName : ''
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
                     <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
-                      <span>{fmtDate(p.fecha)} · <b>{(p.reservaId || '').replace(/^RES-/, 'RES-') + (r ? ' · ' + r.clientName : '')}</b> {p.metodo ? '· ' + p.metodo : ''}</span>
+                      <span>{fmtDate(p.fecha)} · <b>{(p.reservaId || '')}{cliente ? ' · ' + cliente : ''}</b>{p.metodo ? ' · ' + p.metodo : ''}</span>
                       {p.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{p.nota}</div> : null}
                     </div>
                     <b style={{ color: 'var(--green)' }}>+{fmtPeso(p.monto)}</b>
@@ -2587,11 +2597,11 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           <label className="lbl">Método</label>
           <select className="inp" value={ingMetodo} onChange={e => setIngMetodo(e.target.value)} style={{ marginBottom: 10 }} disabled={ingPagada}>
             <option>Efectivo</option>
-            <option>Transferencia</option>
+            
             <option>Nequi</option>
             <option>Daviplata</option>
             <option>Bancolombia</option>
-            <option>Otro</option>
+            
           </select>
           <label className="lbl">Nota (opcional)</label>
           <input className="inp" value={ingNota} onChange={e => setIngNota(e.target.value)} placeholder="Detalle del pago…" disabled={ingPagada} />
