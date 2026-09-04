@@ -1856,17 +1856,13 @@ function ReservasTab({ enriched, setTab }) {
         <h1 style={{ fontSize: 22, margin: 0, fontFamily: 'Georgia,serif' }}>Reservas</h1>
         <button className="btn-pri" onClick={() => setTab('new-reserva', today)}>+ Nueva</button>
       </div>
-      {(() => {
-        const sortByFecha = (a, b) => (a.fecha || '').localeCompare(b.fecha || '')
-        const sortByFechaDesc = (a, b) => (b.fecha || '').localeCompare(a.fecha || '')
-        return {
-          'Hoy':         grupos.hoy,
-          'En curso':    grupos.enCurso,
-          'Próximas':    grupos.futuras.slice().sort(sortByFecha),
-          'Finalizadas': grupos.finalizadas.slice().sort(sortByFechaDesc),
-          'Canceladas':  grupos.canceladas.slice().sort(sortByFechaDesc),
-        }
-      })().map(([title, list]) => list.length === 0 ? null : (
+      {Object.entries({
+        'Hoy':         grupos.hoy,
+        'En curso':    grupos.enCurso,
+        'Próximas':    grupos.futuras.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
+        'Finalizadas': grupos.finalizadas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+        'Canceladas':  grupos.canceladas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+      }).map(([title, list]) => list.length === 0 ? null : (
         <details key={title} open style={{ marginBottom: 8 }}>
           <summary style={{ fontWeight: 700, padding: '8px 4px', cursor: 'pointer', color: 'var(--t2)' }}>{title} ({list.length})</summary>
           <div className="card" style={{ padding: 0 }}>
