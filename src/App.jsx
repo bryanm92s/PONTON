@@ -1963,7 +1963,10 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
       infoModal('No se puede eliminar el cliente ' + c.nombre + ' porque tiene ' + reservasCliente.length + ' reserva(s) asociada(s). Primero cancela o elimina esas reservas.')
       return
     }
-    confirm('¿Eliminar definitivamente al cliente ' + c.nombre + '?', () => SC(clients.filter(x => x.id !== c.id)))
+    confirm('¿Eliminar definitivamente al cliente ' + c.nombre + '?', () => {
+      SC(clients.filter(x => x.id !== c.id))
+      infoModal('Cliente "' + c.nombre + '" eliminado.')
+    })
   }
 
   const guardarNuevo = async () => {
@@ -1990,6 +1993,7 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
     const newC = { id: uid(), nombre: capWords(nNombre), celular: phone, createdAt: localNowISO() }
     await SC([...clients, newC])
     setNNombre(''); setNCelular(''); setShowNew(false)
+    infoModal('Cliente "' + capWords(nNombre) + '" creado.')
   }
 
   return (
@@ -2189,6 +2193,9 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
         try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(nextOcultas)) } catch {}
         setOcultas(nextOcultas)
       }
+      infoModal('Categoría renombrada: "' + editando + '" → "' + nuevo + '".')
+    } else {
+      infoModal('Categoría actualizada.')
     }
     setEditando(null); setNuevoNombre('')
   }
@@ -2203,6 +2210,7 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
       const nextOcultas = Array.from(new Set([...ocultas, cat]))
       try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(nextOcultas)) } catch {}
       setOcultas(nextOcultas)
+      infoModal('Categoría "' + cat + '" eliminada del listado.')
     })
   }
 
