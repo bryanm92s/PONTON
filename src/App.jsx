@@ -6,6 +6,7 @@ import {
   CATEGORIAS_GASTO, totalPagado, totalRestante, pagoEstadoDe, dayBooked,
   estadoOpEfectivo, enrichReservas, buildMonthBooked, monthCells, nextReservaId,
   normalizeCategoria, categoriasDeGastos,
+  validarCelular, validarNombre, validarNota, parseMonto,
 } from './helpers.js'
 
 /* ══════════════════════════════════════════════════════════════
@@ -1060,12 +1061,19 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
   const submit = async () => {
     if (dayBusy) { infoModal('El día ' + fmtDate(fecha) + ' ya está reservado.'); return }
     if (pastCutoff) { infoModal('Ya pasaron las ' + HORA_CORTE_HOY + ':00 a.m. No se puede reservar para hoy.'); return }
-    if (!nombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
+    // Validar nombre
+    const errNombre = validarNombre(nombre)
+    if (errNombre) { infoModal(errNombre); return }
+    // Validar celular si fue ingresado
+    if (celular.trim()) {
+      const errCel = validarCelular(celular)
+      if (errCel) { infoModal(errCel); return }
+    }
     if (overPax) { infoModal('La cantidad de personas debe estar entre 1 y ' + MAX_PAX + '.'); return }
+    if (toN(personas) < 0) { infoModal('La cantidad de personas no puede ser negativa.'); return }
     if (toN(valor) <= 0) { infoModal('Indica un valor de reserva.'); return }
     if (toN(valor) < 0) { infoModal('El valor de la reserva no puede ser negativo.'); return }
     if (toN(abono) < 0) { infoModal('El abono inicial no puede ser negativo.'); return }
-    if (toN(personas) < 0) { infoModal('La cantidad de personas no puede ser negativa.'); return }
     if (toN(abono) > toN(valor)) {
       infoModal('El abono inicial de ' + fmtPeso(toN(abono)) + ' supera el valor de la reserva (' + fmtPeso(toN(valor)) + '). Corrige el monto.')
       return
@@ -1258,7 +1266,12 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
     if (overPax) { infoModal('La cantidad de personas debe estar entre 1 y ' + MAX_PAX + '.'); return }
     if (dayBusyOther) { infoModal('El día ' + fmtDate(fecha) + ' ya está reservado por otra reserva.'); return }
     if (pastCutoff) { infoModal('Ya pasaron las ' + HORA_CORTE_HOY + ':00 a.m. No puedes mover la reserva a hoy.'); return }
-    if (!nombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
+    const errNombreSave = validarNombre(nombre)
+    if (errNombreSave) { infoModal(errNombreSave); return }
+    if (celular.trim()) {
+      const errCelSave = validarCelular(celular)
+      if (errCelSave) { infoModal(errCelSave); return }
+    }
     const newPhone = celular.replace(/\D/g, '')
     const oldPhone = (r.clientPhone || '').replace(/\D/g, '')
     const newNombre = capWords(nombre)
@@ -1954,7 +1967,12 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
   }
 
   const guardarNuevo = async () => {
-    if (!nNombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
+    const errNN = validarNombre(nNombre)
+    if (errNN) { infoModal(errNN); return }
+    if (nCelular.trim()) {
+      const errNC = validarCelular(nCelular)
+      if (errNC) { infoModal(errNC); return }
+    }
     const phone = nCelular.replace(/\D/g, '')
     if (phone && clients.some(c => (c.celular || '').replace(/\D/g, '') === phone)) {
       // Cerramos primero el modal local de "Nuevo cliente" para que el

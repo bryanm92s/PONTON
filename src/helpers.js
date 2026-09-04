@@ -48,6 +48,41 @@ export const tomorrowStr = () => {
 
 export const bool = v => v === true || v === 'true';
 
+// ── Validadores ────────────────────────────────────────────
+
+// Valida un celular: solo dígitos, al menos 7 dígitos (sin código de país).
+// Devuelve null si es válido, o un mensaje de error si no.
+export const validarCelular = (raw) => {
+  const s = String(raw || '').replace(/\D/g, '')
+  if (!s) return 'El celular no puede estar vacío.'
+  if (s.length < 7) return 'El celular debe tener al menos 7 dígitos.'
+  if (s.length > 15) return 'El celular no puede tener más de 15 dígitos.'
+  return null
+}
+
+// Valida un nombre: no vacío, longitud razonable.
+export const validarNombre = (raw, opts = {}) => {
+  const max = opts.max || 80
+  const s = String(raw || '').trim()
+  if (!s) return 'El nombre no puede estar vacío.'
+  if (s.length > max) return 'El nombre no puede tener más de ' + max + ' caracteres.'
+  return null
+}
+
+// Valida una nota: longitud máxima razonable.
+export const validarNota = (raw) => {
+  const s = String(raw || '')
+  if (s.length > 300) return 'La nota no puede tener más de 300 caracteres.'
+  return null
+}
+
+// Normaliza un número: '' para vacío, NaN para inválido, valor numérico en otro caso.
+export const parseMonto = (raw) => {
+  if (raw === '' || raw === null || raw === undefined) return ''
+  const n = Number(String(raw).replace(/,/g, '.'))
+  return isNaN(n) ? NaN : n
+}
+
 export const phoneMatch = (haystack, query) => {
   const h = String(haystack || '').replace(/\D/g, '');
   const q = String(query || '').replace(/\D/g, '');
