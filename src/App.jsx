@@ -16,11 +16,11 @@ import {
 const PALETTES = [
   { id:'oceano',   name:'Océano',   emoji:'🌊', primary:'#0F7AAE', pd:'#0A5980', pl:'#E0F1F9', bg:'#EFF6FB', border:'#D6E7F2', t:'#0A1A24', t2:'#5A6A80',
     grad:'linear-gradient(135deg,#0F7AAE 0%,#1AA0D8 100%)', gradSoft:'linear-gradient(135deg,#E0F1F9 0%,#C8E4F4 100%)' },
-  { id:'turquesa', name:'Turquesa', emoji:'🩵', primary:'#1A9A95', pd:'#0F7470', pl:'#E0F4F2', bg:'#EFF8F7', border:'#CFE7E5', t:'#0A1A1A', t2:'#4A7070',
+  { id:'turquesa', name:'Turquesa', emoji:'🩵', primary:'#1A9A95', pd:'#0F7470', pl:'#E0F4F2', bg:'#FFFFFF', border:'#CFE7E5', t:'#0A1A1A', t2:'#4A7070',
     grad:'linear-gradient(135deg,#1A9A95 0%,#2BC4BE 100%)', gradSoft:'linear-gradient(135deg,#E0F4F2 0%,#B8E5E2 100%)' },
   { id:'arena',    name:'Arena',    emoji:'🏖️', primary:'#B58A4A', pd:'#85652F', pl:'#F7EDDF', bg:'#F7F1E5', border:'#E5D6B5', t:'#1E1A0C', t2:'#7A7040',
     grad:'linear-gradient(135deg,#B58A4A 0%,#D4A86A 100%)', gradSoft:'linear-gradient(135deg,#F7EDDF 0%,#EDD9B4 100%)' },
-  { id:'coral',    name:'Coral',    emoji:'🪸', primary:'#C45A4A', pd:'#94382B', pl:'#F9E2DD', bg:'#F7EEEC', border:'#E8C5BF', t:'#1E0C0A', t2:'#7A5040',
+  { id:'coral',    name:'Coral',    emoji:'🪸', primary:'#C45A4A', pd:'#94382B', pl:'#F9E2DD', bg:'#FFFFFF', border:'#E8C5BF', t:'#1E0C0A', t2:'#7A5040',
     grad:'linear-gradient(135deg,#C45A4A 0%,#E07A6A 100%)', gradSoft:'linear-gradient(135deg,#F9E2DD 0%,#F0C4BC 100%)' },
 ]
 const applyTheme = (pid, mode) => {
@@ -77,7 +77,7 @@ const applyTheme = (pid, mode) => {
   }
 }
 
-const BIZ_NAME     = import.meta.env.VITE_BIZ_NAME     || 'La Luz de Emi'
+const BIZ_NAME     = import.meta.env.VITE_BIZ_NAME     || 'La Luz de Emi 2'
 
 // Convierte el nombre del negocio a Unicode "Mathematical Bold Script" (𝓛𝓪 𝓛𝓾𝔃...)
 // para que se vea elegante en los mensajes de WhatsApp. Solo letras y espacios
@@ -296,7 +296,7 @@ export default function App() {
     })
   }, [])
 
-  const [themeMode,    setThemeMode]    = useState(() => { try { return localStorage.getItem('pn_mode') || 'light' } catch { return 'light' } })
+  const [themeMode]    = useState('light')
   const [themePalette, setThemePalette] = useState(() => { try { return localStorage.getItem('pn_palette') || 'oceano' } catch { return 'oceano' } })
 
   useEffect(() => {
@@ -457,7 +457,7 @@ export default function App() {
     clients, reservas, payments, expenses, enriched,
     SC, SR, SP, SE, sync, deleteReserva, updatePago, deletePago, deleteGasto,
     setTab, goBack, confirm, infoModal, setModal, tabExtra,
-    resetAll, themeMode, themePalette, setThemeMode, setThemePalette,
+    resetAll, themeMode, themePalette,  setThemePalette,
     tick,
   }
 
@@ -510,8 +510,8 @@ export default function App() {
       }}>
         {[
           ['dashboard', 'grid',     'Panel'],
-          ['calendar',  'cal',      'Calendario'],
           ['reservas',  'list',     'Reservas'],
+          ['calendar',  'cal',      'Calendario'],
           ['clientes',  'people',   'Clientes'],
           ['finanzas',  'chart',    'Finanzas'],
           ['settings',  'gear',     'Ajustes'],
@@ -2387,7 +2387,6 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
         <div style={{ fontSize: 12, color: 'var(--t2)', letterSpacing: '.04em', textTransform: 'uppercase' }}>Neto</div>
         <div style={{ fontSize: 28, fontWeight: 700, color: saldo >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 4 }}>{fmtPeso(saldo)}</div>
         <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 12, color: 'var(--t2)', flexWrap: 'wrap' }}>
-          <span>Saldo inicial: <b style={{ color: 'var(--t)' }}>{fmtPeso(config.saldoInicial)}</b></span>
           <span>Ingresos: <b style={{ color: 'var(--green)' }}>+{fmtPeso(totalIng)}</b></span>
           <span>Gastos: <b style={{ color: 'var(--red)' }}>−{fmtPeso(totalGas)}</b></span>
         </div>
@@ -2522,11 +2521,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             </>
           )
         })()}
-        {gasList.some(g => g.reservaId) && (
-          <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 6 }}>
-            Los gastos con badge <b>viaje</b> se generan al finalizar la reserva y solo se eliminan borrando la reserva.
-          </div>
-        )}
+
       </details>
 
       {showNewIng && (
@@ -2613,7 +2608,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
 /* ══════════════════════════════════════════════════════════════
    AJUSTES
 ══════════════════════════════════════════════════════════════ */
-function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setThemeMode, setThemePalette, infoModal }) {
+function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette,  setThemePalette, infoModal }) {
   const [saldo,    setSaldo]    = useState(config.saldoInicial || '0')
   const [pe,       setPe]       = useState(config.puntoEncuentro || '')
   const [cNombre,  setCNombre]  = useState(config.contactoNombre || '')
@@ -2690,11 +2685,6 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
-        <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Tema</h3>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          <button className={'btn-' + (themeMode === 'light' ? 'pri' : 'sec')} style={{ flex: 1 }} onClick={() => setThemeMode('light')}>☀️ Claro</button>
-          <button className={'btn-' + (themeMode === 'dark' ? 'pri' : 'sec')} style={{ flex: 1 }} onClick={() => setThemeMode('dark')}>🌙 Oscuro</button>
-        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {PALETTES.map(p => (
             <button key={p.id} onClick={() => setThemePalette(p.id)}
