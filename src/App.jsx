@@ -424,6 +424,11 @@ export default function App() {
     const next = (Array.isArray(expenses) ? expenses : []).filter(e => e.id !== gastoId)
     return SE(next)
   }, [expenses, SE])
+  // Editar un gasto (manual o del viaje).
+  const updateGasto = useCallback((gastoId, patch) => {
+    const next = (Array.isArray(expenses) ? expenses : []).map(e => e.id === gastoId ? { ...e, ...patch } : e)
+    return SE(next)
+  }, [expenses, SE])
   const SCfg = useCallback((v) => sync({ config: v }), [sync])
 
   const confirm  = (msg, onOk) => setModal({ type: 'confirm', msg, onOk })
@@ -909,7 +914,7 @@ function CalendarView({ enriched, setTab }) {
     hoy:       enriched.filter(r => r.fecha === todayD).slice().sort((a, b) => (a.hora || '').localeCompare(b.hora || '')),
     futuras:   enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
       .slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
-    pasadas:   enriched.filter(r => r.fecha < todayD || r.estadoOp === 'FINALIZADA')
+    pasadas:   enriched.filter(r => r.fecha < todayD || r.estadoOp === 'FINALIZADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
       .slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
   }
 
@@ -1516,7 +1521,7 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
   const editando = !!pagoExistente
   const [monto, setMonto] = useState(editando ? String(pagoExistente.monto) : '')
   const [fecha, setFecha] = useState(editando ? (pagoExistente.fecha || todayStr()) : todayStr())
-  const [metodo, setMetodo] = useState(editando ? (pagoExistente.metodo || 'Efectivo') : 'Efectivo')
+  const [metodo, setMetodo] = useState(editando ? (pagoExistente.metodo || 'Bancolombia') : 'Bancolombia')
   const [nota, setNota] = useState(editando ? (pagoExistente.nota || '') : '')
 
   if (!r) return <div className="card">Reserva no encontrada.</div>
@@ -1666,7 +1671,7 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
             <option>Efectivo</option>
             
             <option>Nequi</option>
-            <option>Daviplata</option>
+            
             <option>Bancolombia</option>
             
           </select>
@@ -1973,8 +1978,12 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
       return
     }
     confirm('¿Eliminar definitivamente al cliente ' + c.nombre + '?', () => {
-      SC(clients.filter(x => x.id !== c.id))
-      infoModal('Cliente "' + c.nombre + '" eliminado.')
+      const next = clients.filter(x => x.id !== c.id)
+      SC(next).then(() => {
+        // Mostramos el mensaje después de un tick para que sobreviva
+        // al re-render del state.
+        setTimeout(() => infoModal('Cliente "' + c.nombre + '" eliminado.'), 50)
+      })
     })
   }
 
@@ -2303,12 +2312,13 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
 /* ══════════════════════════════════════════════════════════════
    FINANZAS
 ══════════════════════════════════════════════════════════════ */
-function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto, confirm, SP, infoModal }) {
+function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto, updateGasto, confirm, SP, infoModal }) {
   const [showNewIng, setShowNewIng] = useState(false)
+  const [editandoGasto, setEditandoGasto] = useState(null)
   const [ingReservaId, setIngReservaId] = useState('')
   const [ingMonto, setIngMonto] = useState('')
   const [ingFecha, setIngFecha] = useState(todayStr())
-  const [ingMetodo, setIngMetodo] = useState('Efectivo')
+  const [ingMetodo, setIngMetodo] = useState('Bancolombia')
   const [ingNota, setIngNota] = useState('')
 
   // Filtros de finanzas (mostrados en pestañas: mes / día / rango)
@@ -2388,15 +2398,6 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
-        <div style={{ fontSize: 12, color: 'var(--t2)', letterSpacing: '.04em', textTransform: 'uppercase' }}>Neto</div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: saldo >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 4 }}>{fmtPeso(saldo)}</div>
-        <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 12, color: 'var(--t2)', flexWrap: 'wrap' }}>
-          <span>Ingresos: <b style={{ color: 'var(--green)' }}>+{fmtPeso(totalIng)}</b></span>
-          <span>Gastos: <b style={{ color: 'var(--red)' }}>−{fmtPeso(totalGas)}</b></span>
-        </div>
-      </div>
-
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Filtros</h3>
         <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
@@ -2410,9 +2411,14 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
               <label className="lbl" style={{ margin: 0 }}>Por mes</label>
               <input type="month" className="inp" value={mes} onChange={e => setMes(e.target.value)} style={{ maxWidth: 170 }} />
             </div>
-            <Row label="Ingresos" val={'+' + fmtPeso(ingMes)} />
-            <Row label="Gastos"   val={'−' + fmtPeso(gasMes)} />
-            <Row label="Neto del mes" val={fmtPeso(ingMes - gasMes)} bold />
+            <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
+              <div style={{ fontSize: 12, color: 'var(--t2)', letterSpacing: '.04em', textTransform: 'uppercase' }}>Neto del mes</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: (ingMes - gasMes) >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtPeso(ingMes - gasMes)}</div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12, color: 'var(--t2)', flexWrap: 'wrap' }}>
+                <span>Ingresos: <b style={{ color: 'var(--green)' }}>+{fmtPeso(ingMes)}</b></span>
+                <span>Gastos: <b style={{ color: 'var(--red)' }}>−{fmtPeso(gasMes)}</b></span>
+              </div>
+            </div>
           </div>
         )}
         {filtroActivo === 'dia' && (
@@ -2436,11 +2442,16 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
               <input type="date" className="inp" value={rangoHasta} onChange={e => setRangoHasta(e.target.value)} style={{ flex: 1 }} />
             </div>
             {rangoInvalido && <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 10, padding: 8, fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>⚠ La fecha inicial no puede ser mayor que la fecha final.</div>}
-            {!rangoInvalido && <>
-              <Row label="Ingresos" val={'+' + fmtPeso(ingRango)} />
-              <Row label="Gastos"   val={'−' + fmtPeso(gasRango)} />
-              <Row label="Neto del rango" val={fmtPeso(ingRango - gasRango)} bold />
-            </>}
+            {!rangoInvalido && (
+              <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
+                <div style={{ fontSize: 12, color: 'var(--t2)', letterSpacing: '.04em', textTransform: 'uppercase' }}>Neto del rango</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: (ingRango - gasRango) >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtPeso(ingRango - gasRango)}</div>
+                <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12, color: 'var(--t2)', flexWrap: 'wrap' }}>
+                  <span>Ingresos: <b style={{ color: 'var(--green)' }}>+{fmtPeso(ingRango)}</b></span>
+                  <span>Gastos: <b style={{ color: 'var(--red)' }}>−{fmtPeso(gasRango)}</b></span>
+                </div>
+              </div>
+            )}
           </div>
           )
         })()}
@@ -2464,8 +2475,10 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13, gap: 6 }}>
                     <div style={{ flex: 1, cursor: r ? 'pointer' : 'default' }} onClick={() => r && setTab('edit-reserva', r.id)}>
-                      <span>{fmtDate(p.fecha)} · <b>{(p.reservaId || '')}{cliente ? ' · ' + cliente : ''}</b>{p.metodo ? ' · ' + p.metodo : ''}</span>
-                      {p.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{p.nota}</div> : null}
+                      <span style={{ background: 'var(--primary-l)', color: 'var(--primary-d)', padding: '3px 9px', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', display: 'inline-block', border: '1px solid rgba(0, 0, 0, 0.04)' }}>
+                        {fmtDate(p.fecha)} · <b>{(p.reservaId || '')}{cliente ? ' · ' + cliente : ''}</b>{p.metodo ? ' · ' + p.metodo : ''}
+                      </span>
+                      {p.nota ? <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2 }}>{p.nota}</div> : null}
                     </div>
                     <b style={{ color: 'var(--green)' }}>+{fmtPeso(p.monto)}</b>
                   </div>
@@ -2509,6 +2522,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
                       {g.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{g.nota}</div> : null}
                     </div>
                     <b style={{ color: 'var(--red)' }}>−{fmtPeso(g.monto)}</b>
+                    <button onClick={() => setEditandoGasto(g)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Editar gasto">✏️</button>
                     {!esDelViaje && (
                       <button onClick={() => confirm('¿Eliminar este gasto de ' + fmtPeso(g.monto) + '?', () => deleteGasto(g.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Eliminar gasto">🗑</button>
                     )}
@@ -2530,6 +2544,40 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
 
       </details>
 
+      {editandoGasto && (() => {
+        const g = editandoGasto
+        return (
+        <Modal
+          onOk={async () => {
+            const data = {
+              fecha: document.getElementById('edit-gasto-fecha').value,
+              categoria: document.getElementById('edit-gasto-cat').value,
+              monto: toN(document.getElementById('edit-gasto-monto').value),
+              nota: document.getElementById('edit-gasto-nota').value,
+            }
+            if (data.monto <= 0) { infoModal('Indica un monto mayor a 0.'); return }
+            await updateGasto(g.id, data)
+            setEditandoGasto(null)
+            infoModal('Gasto actualizado.')
+          }}
+          onCancel={() => setEditandoGasto(null)}
+          okLabel="Guardar cambios"
+          cancelLabel="Cancelar"
+        >
+          <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>✏️</div>
+          <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Editar gasto</div>
+          <label className="lbl">Fecha</label>
+          <input id="edit-gasto-fecha" type="date" className="inp" defaultValue={editandoGasto.fecha || todayStr()} style={{ marginBottom: 10 }} />
+          <label className="lbl">Categoría</label>
+          <input id="edit-gasto-cat" type="text" className="inp" defaultValue={editandoGasto.categoria || ''} style={{ marginBottom: 10 }} />
+          <label className="lbl">Monto</label>
+          <input id="edit-gasto-monto" type="number" min="0" step="any" className="inp" defaultValue={String(editandoGasto.monto || 0)} style={{ marginBottom: 10 }} />
+          <label className="lbl">Nota (opcional)</label>
+          <input id="edit-gasto-nota" type="text" className="inp" defaultValue={editandoGasto.nota || ''} />
+        </Modal>
+        )
+      })()}
+
       {showNewIng && (
         <Modal
           onOk={guardarIng}
@@ -2544,12 +2592,15 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           <select className="inp" value={ingReservaId} onChange={e => setIngReservaId(e.target.value)} style={{ marginBottom: 10 }}>
             <option value="">— Selecciona la reserva —</option>
             {enriched
+              .filter(r => r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
               .slice()
               .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
               .map(r => {
                 const pagado = (payments || []).filter(p => String(p.reservaId) === String(r.id)).reduce((s, p) => s + toN(p.monto), 0)
                 const resta = Math.max(0, toN(r.valor) - pagado)
-                return <option key={r.id} value={r.id}>{r.id} · {r.clientName} · {fmtDate(r.fecha)} · {resta > 0 ? 'resta ' + fmtPeso(resta) : 'pagada'}</option>
+                // Ocultar también las reservas que ya están pagadas.
+                if (resta <= 0) return null
+                return <option key={r.id} value={r.id}>{r.id} · {r.clientName} · {fmtDate(r.fecha)} · resta {fmtPeso(resta)}</option>
               })}
           </select>
 
@@ -2599,7 +2650,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             <option>Efectivo</option>
             
             <option>Nequi</option>
-            <option>Daviplata</option>
+            
             <option>Bancolombia</option>
             
           </select>
