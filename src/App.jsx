@@ -2417,7 +2417,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Filtros</h3>
         <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-          {[['mes','Por mes'],['dia','Hoy'],['rango','Por rango']].map(([k, lb]) => (
+          {[['mes','Por mes'],['dia','Por día'],['rango','Por rango']].map(([k, lb]) => (
             <button key={k} onClick={() => setFiltroActivo(k)} className={filtroActivo === k ? 'btn-pri' : 'btn-sec'} style={{ flex: 1, padding: '8px 10px' }}>{lb}</button>
           ))}
         </div>
