@@ -154,7 +154,7 @@ export const pagoEstadoDe = (reserva, payments) => {
 // ¿El día ya está reservado? (excluye una reserva concreta al editarla).
 export const dayBooked = (reservas, date, excludeId = null) =>
   (Array.isArray(reservas) ? reservas : []).some(r =>
-    cleanDate(r.fecha) === date && r.id !== excludeId);
+    cleanDate(r.fecha) === date && r.id !== excludeId && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA');
 
 // Estado operativo EFECTIVO:
 //  - EN_CURSO / FINALIZADA / CANCELADA se conservan (terminales / bloquean edición).
@@ -162,10 +162,15 @@ export const dayBooked = (reservas, date, excludeId = null) =>
 //  - Si hay abonos ⇒ CONFIRMADA; si no ⇒ PENDIENTE.
 export const estadoOpEfectivo = (reserva, payments, now = new Date()) => {
   const stored = reserva && reserva.estadoOp;
-  if (stored === 'EN_CURSO' || stored === 'FINALIZADA' || stored === 'CANCELADA') return stored;
-  const base = totalPagado(reserva && reserva.id, payments) > 0 ? 'CONFIRMADA' : 'PENDIENTE';
+  if (stored === 'FINALIZADA' || stored === 'CANCELADA') return stored;
   const date = cleanDate(reserva && reserva.fecha);
   const time = cleanTime(reserva && reserva.hora);
+  if (stored === 'EN_CURSO' && date && time) {
+    const start = new Date(date + 'T' + time + ':00');
+    const fin = new Date(start.getTime() + 5 * 60 * 60 * 1000);
+    if (now >= fin) return 'FINALIZADA';
+  }
+  const base = totalPagado(reserva && reserva.id, payments) > 0 ? 'CONFIRMADA' : 'PENDIENTE';
   if (!date || !time) return base;
   const start = new Date(date + 'T' + time + ':00');
   if (start <= now) return 'EN_CURSO';

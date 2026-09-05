@@ -95,10 +95,10 @@ const BIZ_EMOJI    = import.meta.env.VITE_BIZ_EMOJI    || '🚤'
 const BIZ_LOGO     = import.meta.env.VITE_BIZ_LOGO     || ''
 
 // Horario fijo del recorrido (no se pregunta al cliente)
-const HORA_SALIDA  = '09:00'
+const HORA_SALIDA  = '10:00'
 const HORA_LLEGADA = '17:00'
 // Hora límite para aceptar reservas el día de hoy (después de las 9 ya no se puede)
-const HORA_CORTE_HOY = 9
+const HORA_CORTE_HOY = 10
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 const capFirst = s => { const t = String(s || '').trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1) : t }
@@ -1005,7 +1005,7 @@ function CalendarView({ enriched, setTab }) {
         {[
           ['Hoy',       grupos.hoy,     true],
           ['Futuras',   grupos.futuras, true],
-          ['Pasadas',   grupos.pasadas, false],
+          ['Pasadas', grupos.pasadas, false],
         ].map(([title, list, open]) => (
           <details key={title} open={open} className="card" style={{ marginBottom: 10, padding: 0, overflow: 'hidden' }}>
             <summary style={{
@@ -1044,6 +1044,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
   const [valor,   setValor]   = useState('')
   const [abono,   setAbono]   = useState('')
   const [nombreTocado, setNombreTocado] = useState(false)
+  const [hora,    setHora]    = useState(HORA_SALIDA)
 
   const puntoEncuentro = (config && config.puntoEncuentro) || ''
   const phone = celular.replace(/\D/g, '')
@@ -1104,7 +1105,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
     const newId = nextReservaId(reservas, (config && config.contadorReservas) || 0)
     const newReserva = {
       id: newId,
-      fecha, hora: HORA_SALIDA,
+      fecha, hora,
       clientId: matched ? matched.id : '',
       clientName: capWords(nombre),
       clientPhone: phone,
@@ -1172,9 +1173,15 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
         {pastCutoff && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>⚠ Ya son más de las {HORA_CORTE_HOY}:00 a.m. — no se puede reservar para hoy</div>}
       </div>
 
-      <div className="card" style={{ marginBottom: 12 }}>
-        <label className="lbl">Personas (máx {MAX_PAX})</label>
-        <input type="number" min="1" max={MAX_PAX} className="inp" value={personas} onChange={e => setPersonas(e.target.value)} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <div className="card">
+          <label className="lbl">Personas (máx {MAX_PAX})</label>
+          <input type="number" min="1" max={MAX_PAX} className="inp" value={personas} onChange={e => setPersonas(e.target.value)} />
+        </div>
+        <div className="card">
+          <label className="lbl">Hora de inicio</label>
+          <input type="time" className="inp" value={hora} onChange={e => setHora(e.target.value)} />
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
@@ -1184,7 +1191,16 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
           placeholder="Celular (sin espacios, ej. 3223992340)"
           inputMode="tel"
           value={celular}
-          onChange={e => { setCelular(e.target.value); setNombreTocado(false) }}
+          onChange={e => {
+            const v = e.target.value
+            setCelular(v)
+            setNombreTocado(false)
+            // Si el nuevo celular NO existe en la base de clientes, limpiar
+            // el nombre para que el usuario lo ingrese manualmente.
+            const phone = v.replace(/\D/g, '')
+            const existe = phone && clients.find(c => (c.celular || '').replace(/\D/g, '') === phone)
+            if (!existe) setNombre('')
+          }}
           style={{ marginBottom: 8 }}
         />
         <input
@@ -1865,7 +1881,7 @@ function ReservasTab({ enriched, setTab }) {
         'Hoy':         grupos.hoy,
         'En curso':    grupos.enCurso,
         'Próximas':    grupos.futuras.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
-        'Finalizadas': grupos.finalizadas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+        'Pasadas': grupos.pasadas.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
         'Canceladas':  grupos.canceladas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
       }).map(([title, list]) => list.length === 0 ? null : (
         <details key={title} open style={{ marginBottom: 8 }}>
@@ -2312,7 +2328,7 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
 /* ══════════════════════════════════════════════════════════════
    FINANZAS
 ══════════════════════════════════════════════════════════════ */
-function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto, updateGasto, confirm, SP, infoModal }) {
+function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto, updateGasto, confirm, SP, SE, infoModal }) {
   const [showNewIng, setShowNewIng] = useState(false)
   const [editandoGasto, setEditandoGasto] = useState(null)
   const [ingReservaId, setIngReservaId] = useState('')
@@ -2401,7 +2417,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Filtros</h3>
         <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-          {[['mes','Por mes'],['dia','Por día'],['rango','Por rango']].map(([k, lb]) => (
+          {[['mes','Por mes'],['dia','Hoy'],['rango','Por rango']].map(([k, lb]) => (
             <button key={k} onClick={() => setFiltroActivo(k)} className={filtroActivo === k ? 'btn-pri' : 'btn-sec'} style={{ flex: 1, padding: '8px 10px' }}>{lb}</button>
           ))}
         </div>
@@ -2424,12 +2440,17 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
         {filtroActivo === 'dia' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <label className="lbl" style={{ margin: 0 }}>Por día</label>
+              <label className="lbl" style={{ margin: 0 }}>Día</label>
               <input type="date" className="inp" value={dia} onChange={e => setDia(e.target.value)} style={{ maxWidth: 170 }} />
             </div>
-            <Row label="Ingresos" val={'+' + fmtPeso(ingDia)} />
-            <Row label="Gastos"   val={'−' + fmtPeso(gasDia)} />
-            <Row label="Neto del día" val={fmtPeso(ingDia - gasDia)} bold />
+            <div className="card" style={{ marginBottom: 12, background: 'var(--primary-l)', borderColor: 'var(--primary)' }}>
+              <div style={{ fontSize: 12, color: 'var(--t2)', letterSpacing: '.04em', textTransform: 'uppercase' }}>Neto del día</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: (ingDia - gasDia) >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtPeso(ingDia - gasDia)}</div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12, color: 'var(--t2)', flexWrap: 'wrap' }}>
+                <span>Ingresos: <b style={{ color: 'var(--green)' }}>+{fmtPeso(ingDia)}</b></span>
+                <span>Gastos: <b style={{ color: 'var(--red)' }}>−{fmtPeso(gasDia)}</b></span>
+              </div>
+            </div>
           </div>
         )}
         {filtroActivo === 'rango' && (() => {
@@ -2551,12 +2572,16 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           onOk={async () => {
             const data = {
               fecha: document.getElementById('edit-gasto-fecha').value,
-              categoria: document.getElementById('edit-gasto-cat').value,
+              categoria: document.getElementById('edit-gasto-cat').value.trim(),
               monto: toN(document.getElementById('edit-gasto-monto').value),
               nota: document.getElementById('edit-gasto-nota').value,
             }
             if (data.monto <= 0) { infoModal('Indica un monto mayor a 0.'); return }
-            await updateGasto(g.id, data)
+            if (!data.categoria) { infoModal('Indica una categoría.'); return }
+            const cat = normalizeCategoria(data.categoria)
+            if (!cat) { infoModal('La categoría no es válida.'); return }
+            const next = (Array.isArray(expenses) ? expenses : []).map(e => e.id === g.id ? { ...e, fecha: data.fecha, categoria: cat, monto: data.monto, nota: data.nota } : e)
+            await SE(next)
             setEditandoGasto(null)
             infoModal('Gasto actualizado.')
           }}
@@ -2665,37 +2690,26 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
 /* ══════════════════════════════════════════════════════════════
    AJUSTES
 ══════════════════════════════════════════════════════════════ */
-function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette,  setThemePalette, infoModal }) {
-  const [saldo,    setSaldo]    = useState(config.saldoInicial || '0')
-  const [pe,       setPe]       = useState(config.puntoEncuentro || '')
-  const [cNombre,  setCNombre]  = useState(config.contactoNombre || '')
-  const [cCelular, setCCelular] = useState(config.contactoCelular || '')
-  const [nNombre,  setNNombre]  = useState(config.negocioNombre || '')
+function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setThemePalette, infoModal }) {
+  const [saldo, setSaldo] = useState(config.saldoInicial || '0')
   const [showReset, setShowReset] = useState(false)
   const [confirmText, setConfirmText] = useState('')
 
-  useEffect(() => {
-    setSaldo(config.saldoInicial || '0')
-    setPe(config.puntoEncuentro || '')
-    setCNombre(config.contactoNombre || '')
-    setCCelular(config.contactoCelular || '')
-    setNNombre(config.negocioNombre || '')
-  }, [config.saldoInicial, config.puntoEncuentro, config.contactoNombre, config.contactoCelular, config.negocioNombre])
+  // Solo se permite editar el saldo inicial. El nombre del negocio, el
+  // punto de encuentro y los datos de contacto están quemados al instalar
+  // la app, no se exponen al usuario en este formulario.
+  const BIZ_NAME_HARD = 'La Luz de Emi 2'
+  const PUNTO_ENCUENTRO_HARD = 'Muelle de la policía, Cra. 1, San Andrés'
 
   const save = async () => {
     const num = toN(saldo)
     if (num < 0) { infoModal('El saldo inicial no puede ser negativo. Ingresa 0 o un valor positivo.'); return }
-    const phone = cCelular.replace(/\D/g, '')
-    if (cCelular && phone.length < 7) {
-      infoModal('El celular de contacto no es válido. Ingresa al menos 7 dígitos.')
-      return
-    }
     await SCfg({
       saldoInicial: num,
-      puntoEncuentro: pe,
-      contactoNombre: capWords(cNombre),
-      contactoCelular: phone,
-      negocioNombre: capWords(nNombre),
+      puntoEncuentro: PUNTO_ENCUENTRO_HARD,
+      contactoNombre: '',
+      contactoCelular: '',
+      negocioNombre: BIZ_NAME_HARD,
     })
   }
 
@@ -2714,8 +2728,11 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette,  setThem
 
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Negocio</h3>
-        <label className="lbl">Nombre del negocio (aparece en los mensajes de WhatsApp)</label>
-        <input className="inp" value={nNombre} onChange={e => setNNombre(e.target.value)} placeholder="La Luz de Emi 2" style={{ marginBottom: 8 }} />
+        <p style={{ fontSize: 12, color: 'var(--t2)', margin: '0 0 10px' }}>
+          El nombre del negocio y el punto de encuentro están configurados al instalar la app:
+          <br />
+          <b style={{ color: 'var(--t)' }}>La Luz de Emi 2</b> · Muelle de la policía, Cra. 1, San Andrés.
+        </p>
         <label className="lbl">Saldo inicial (dinero ya ahorrado)</label>
         <input
           type="number" min="0" step="any" className="inp"
@@ -2724,21 +2741,7 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette,  setThem
           placeholder="0"
           style={{ marginBottom: 8 }}
         />
-        <label className="lbl">Punto de encuentro por defecto (muelle)</label>
-        <input className="inp" value={pe} onChange={e => setPe(e.target.value)} placeholder="Muelle, dirección…" style={{ marginBottom: 10 }} />
         <button className="btn-pri" onClick={save} style={{ width: '100%' }}>Guardar</button>
-      </div>
-
-      <div className="card" style={{ marginBottom: 12 }}>
-        <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Contacto del negocio</h3>
-        <p style={{ fontSize: 12, color: 'var(--t2)', margin: '0 0 10px' }}>
-          Estos datos aparecen en los mensajes de WhatsApp al cliente para que sepa con quién se va a encontrar.
-        </p>
-        <label className="lbl">Nombre del contacto</label>
-        <input className="inp" value={cNombre} onChange={e => setCNombre(e.target.value)} placeholder="Ej. Bryan" style={{ marginBottom: 8 }} />
-        <label className="lbl">Celular del contacto</label>
-        <input className="inp" value={cCelular} onChange={e => setCCelular(e.target.value)} inputMode="tel" placeholder="3001234567" style={{ marginBottom: 10 }} />
-        <button className="btn-pri" onClick={save} style={{ width: '100%' }}>Guardar contacto</button>
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
