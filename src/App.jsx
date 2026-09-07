@@ -93,7 +93,8 @@ const toFancyScript = str => {
 const BIZ_NAME_FANCY = toFancyScript(BIZ_NAME)
 const BIZ_SUBTITLE = import.meta.env.VITE_BIZ_SUBTITLE || 'Reservas y operación'
 const BIZ_EMOJI    = import.meta.env.VITE_BIZ_EMOJI    || ''
-const BIZ_LOGO     = import.meta.env.VITE_BIZ_LOGO     || '/logo.ico'
+// Logo: siempre usa el archivo estático del directorio público.
+const BIZ_LOGO     = '/logo.ico'
 
 // Horario fijo del recorrido (no se pregunta al cliente)
 const HORA_SALIDA  = '10:00'
