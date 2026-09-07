@@ -253,7 +253,7 @@ export default function App() {
       link.href = svg
     } else {
       // Sin emoji configurado: usa el logo.ico del directorio público.
-      link.href = BIZ_LOGO || '/logo.ico'
+      link.href = (BIZ_LOGO || '/logo.ico') + '?v=2'
     }
   }, [])
 
@@ -1163,7 +1163,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
     // El cliente se reutiliza si ya existe; si no, se da de alta.
     let nextClients = clients
     if (phone && !clienteExistente) {
-      const newC = { id: uid(), nombre: capWords(nombre), celular: phone, createdAt: localNowISO() }
+      const newC = { id: uid(), nombre: normalizeCategoria(nombre), celular: phone, createdAt: localNowISO() }
       nextClients = [...clients, newC]
       SC(nextClients)
     }
@@ -1174,7 +1174,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
       id: newId,
       fecha, hora,
       clientId: matched ? matched.id : '',
-      clientName: capWords(nombre),
+      clientName: normalizeCategoria(nombre),
       clientPhone: phone,
       personas: toN(personas),
       valor: toN(valor),
@@ -1367,7 +1367,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
     }
     const newPhone = celular.replace(/\D/g, '')
     const oldPhone = (r.clientPhone || '').replace(/\D/g, '')
-    const newNombre = capWords(nombre)
+    const newNombre = normalizeCategoria(nombre)
     let nextClients = clients
     let targetClientId = r.clientId
 
@@ -2031,7 +2031,7 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
   const guardarEdicion = async () => {
     if (!eNombre.trim()) { infoModal('Escribe el nombre del cliente.'); return }
     const newPhone = eCelular.replace(/\D/g, '')
-    const newNombre = capWords(eNombre)
+    const newNombre = normalizeCategoria(eNombre)
     const editingC = clients.find(c => c.id === editing)
     const oldPhone = (editingC && editingC.celular || '').replace(/\D/g, '')
     if (newPhone && newPhone !== oldPhone && clients.some(c => c.id !== editing && (c.celular || '').replace(/\D/g, '') === newPhone)) {
@@ -2091,10 +2091,10 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
       }, 50)
       return
     }
-    const newC = { id: uid(), nombre: capWords(nNombre), celular: phone, createdAt: localNowISO() }
+    const newC = { id: uid(), nombre: normalizeCategoria(nNombre), celular: phone, createdAt: localNowISO() }
     await SC([...clients, newC])
     setNNombre(''); setNCelular(''); setShowNew(false)
-    infoModal('Cliente "' + capWords(nNombre) + '" creado.')
+    infoModal('Cliente "' + normalizeCategoria(nNombre) + '" creado.')
   }
 
   return (
@@ -2243,8 +2243,8 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
           </>
         ) : (
           <>
-            <input className="inp" placeholder="Ej. mantenimiento, arriendo…" value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} />
-            <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Se guardará como: <b>{normalizeCategoria(nuevaCat) || '—'}</b> (primera letra mayúscula, resto minúscula)</div>
+<input className="inp" placeholder="Ej. mantenimiento, arriendo…" value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} />
+                    <div style={{ fontSize: 12, color: 'var(--t2)' }}>Se guardará como: <b>{normalizeCategoria(nuevaCat) || '—'}</b></div>
             <button className="btn-sec" style={{ width: '100%', marginTop: 8 }} onClick={() => { setUsarNueva(false); setNuevaCat('') }}>← Elegir de la lista</button>
           </>
         )}
@@ -2387,7 +2387,7 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack, confirm })
           <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>🗂️</div>
           <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Nueva categoría</div>
           <label className="lbl">Nombre</label>
-          <input className="inp" autoFocus value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} placeholder="Ej. mantenimiento" style={{ marginBottom: 6 }} />
+          <input className="inp" type="text" className="inp" defaultValue={nuevaCat} onChange={e => setNuevaCat(e.target.value)} placeholder="Ej. mantenimiento" style={{ marginBottom: 6 }} />
           <div style={{ fontSize: 12, color: 'var(--t2)' }}>Se guardará como: <b>{normalizeCategoria(nuevaCat) || '—'}</b></div>
         </Modal>
       )}
