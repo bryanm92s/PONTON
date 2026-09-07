@@ -2078,7 +2078,13 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
     if (errNN) { infoModal(errNN); return }
     if (nCelular.trim()) {
       const errNC = validarCelular(nCelular)
-      if (errNC) { infoModal(errNC); return }
+      if (errNC) {
+        // Cerramos primero el modal local para que el error global quede visible
+        setShowNew(false)
+        setNNombre(''); setNCelular('')
+        setTimeout(() => infoModal(errNC), 50)
+        return
+      }
     }
     const phone = nCelular.replace(/\D/g, '')
     if (phone && clients.some(c => (c.celular || '').replace(/\D/g, '') === phone)) {
