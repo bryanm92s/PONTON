@@ -1853,11 +1853,12 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
 function ReservasTab({ enriched, setTab }) {
   const today = todayStr()
   const grupos = {
-    hoy:     enriched.filter(r => r.fecha === today),
-    enCurso: enriched.filter(r => r.estadoOp === 'EN_CURSO' && r.fecha !== today),
-    futuras: enriched.filter(r => r.fecha > today && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && r.estadoOp !== 'EN_CURSO'),
+    hoy:        enriched.filter(r => r.fecha === today && r.estadoOp !== 'CANCELADA'),
+    enCurso:    enriched.filter(r => r.estadoOp === 'EN_CURSO' && r.fecha !== today),
+    futuras:    enriched.filter(r => r.fecha > today && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && r.estadoOp !== 'EN_CURSO'),
+    pasadas:    enriched.filter(r => r.fecha < today && r.estadoOp !== 'CANCELADA'),
     finalizadas: enriched.filter(r => r.estadoOp === 'FINALIZADA'),
-    canceladas:  enriched.filter(r => r.estadoOp === 'CANCELADA'),
+    canceladas: enriched.filter(r => r.estadoOp === 'CANCELADA'),
   }
   const total = enriched.length
   if (total === 0) {
@@ -1882,7 +1883,8 @@ function ReservasTab({ enriched, setTab }) {
         'Hoy':         grupos.hoy,
         'En curso':    grupos.enCurso,
         'Próximas':    grupos.futuras.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
-        'Pasadas': grupos.pasadas.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
+        'Pasadas':     grupos.pasadas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+        'Finalizadas': grupos.finalizadas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
         'Canceladas':  grupos.canceladas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
       }).map(([title, list]) => list.length === 0 ? null : (
         <details key={title} open style={{ marginBottom: 8 }}>
