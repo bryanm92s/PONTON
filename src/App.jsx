@@ -289,6 +289,20 @@ export default function App() {
     return () => { cancelled = true }
   }, [])
 
+  // Sincroniza en Config el conteo actual de reservas existentes en Sheets.
+  // Es independiente del `contadorReservas` (que es monotónico y no se
+  // recicla): este refleja cuántas filas tiene la hoja "Reservas" en este
+  // momento, para que el usuario vea si hay huecos por reservas eliminadas.
+  const lastSyncCount = useRef(null)
+  useEffect(() => {
+    const total = (Array.isArray(reservas) ? reservas : []).length
+    if (!config) return
+    if (lastSyncCount.current === total) return
+    lastSyncCount.current = total
+    if (String(config.totalReservasActuales || '') === String(total)) return
+    SCfg({ ...config, totalReservasActuales: String(total) }).catch(() => {})
+  }, [reservas, config, SCfg])
+
   const savingRef = useRef(false)
 
   const refresh = useCallback((silent = false) => {
@@ -2812,6 +2826,27 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
           style={{ marginBottom: 8 }}
         />
         <button className="btn-pri" onClick={save} style={{ width: '100%' }}>Guardar</button>
+      </div>
+
+      <div className="card" style={{ marginBottom: 12 }}>
+        <h3 style={{ margin: '0 0 6px', fontSize: 14 }}>Reservas</h3>
+        <p style={{ fontSize: 12, color: 'var(--t2)', margin: '0 0 10px' }}>
+          El consecutivo es el ID más alto usado (no se recicla al eliminar). El total son las reservas que existen ahora mismo en la hoja Reservas.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div style={{ background: 'var(--gray-bg)', borderRadius: 8, padding: '10px 12px' }}>
+            <div style={{ fontSize: 11, color: 'var(--t2)', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>Consecutivo más alto</div>
+            <div style={{ fontSize: 22, fontWeight: 800, marginTop: 2 }}>
+              {config && config.contadorReservas ? 'RES-' + String(config.contadorReservas).padStart(4, '0') : '—'}
+            </div>
+          </div>
+          <div style={{ background: 'var(--gray-bg)', borderRadius: 8, padding: '10px 12px' }}>
+            <div style={{ fontSize: 11, color: 'var(--t2)', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>Reservas existentes</div>
+            <div style={{ fontSize: 22, fontWeight: 800, marginTop: 2 }}>
+              {config && config.totalReservasActuales ? config.totalReservasActuales : '—'}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
