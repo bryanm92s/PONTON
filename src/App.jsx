@@ -494,7 +494,7 @@ export default function App() {
     calRes.forEach(a => { saveData({ action: 'deleteCalendarEvent', eventId: a.calendarEventId }).catch(() => {}) })
     const empty = { config: { ...DEFAULT_CONFIG }, clients: [], reservations: [], payments: [], expenses: [] }
     setConfig(empty.config); setC([]); setR([]); setP([]); setE([])
-    try { ['pn_c', 'pn_r', 'pn_p', 'pn_e', 'pn_cfg'].forEach(k => localStorage.removeItem(k)) } catch {}
+    try { ['pn_c', 'pn_r', 'pn_p', 'pn_e', 'pn_cfg', 'pn_cats_custom', 'pn_cats_ocultas', 'pn_calendar_cleanup_v1'].forEach(k => localStorage.removeItem(k)) } catch {}
     setSt('saving')
     try { await saveData(empty); setSt('ok'); setLS(new Date()) }
     catch (e) { setEM(e.message); setSt('error'); setTimeout(() => setSt('ok'), 5000) }
@@ -2271,7 +2271,7 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
   )
 }
 
-function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
+function GestionCategorias({ expenses, SE, setTab, infoModal, goBack, confirm }) {
   const [editando, setEditando] = useState(null)
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [showNueva, setShowNueva] = useState(false)
