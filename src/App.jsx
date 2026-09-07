@@ -292,16 +292,8 @@ export default function App() {
   // Sincroniza en Config el conteo actual de reservas existentes en Sheets.
   // Es independiente del `contadorReservas` (que es monotónico y no se
   // recicla): este refleja cuántas filas tiene la hoja "Reservas" en este
-  // momento, para que el usuario vea si hay huecos por reservas eliminadas.
-  const lastSyncCount = useRef(null)
-  useEffect(() => {
-    const total = (Array.isArray(reservas) ? reservas : []).length
-    if (!config) return
-    if (lastSyncCount.current === total) return
-    lastSyncCount.current = total
-    if (String(config.totalReservasActuales || '') === String(total)) return
-    SCfg({ ...config, totalReservasActuales: String(total) }).catch(() => {})
-  }, [reservas, config, SCfg])
+  // momento. Se actualiza automáticamente al crear/eliminar reservas.
+  // (declarado justo después de SCfg para evitar la zona muerta de const)
 
   const savingRef = useRef(false)
 
@@ -479,6 +471,20 @@ export default function App() {
     return SE(next)
   }, [expenses, SE])
   const SCfg = useCallback((v) => sync({ config: v }), [sync])
+
+  // Sincroniza en Config el conteo actual de reservas existentes en Sheets.
+  // Es independiente del `contadorReservas` (que es monotónico y no se
+  // recicla): este refleja cuántas filas tiene la hoja "Reservas" en este
+  // momento. Se actualiza automáticamente al crear/eliminar reservas.
+  const lastSyncCount = useRef(null)
+  useEffect(() => {
+    const total = (Array.isArray(reservas) ? reservas : []).length
+    if (!config) return
+    if (lastSyncCount.current === total) return
+    lastSyncCount.current = total
+    if (String(config.totalReservasActuales || '') === String(total)) return
+    SCfg({ ...config, totalReservasActuales: String(total) }).catch(() => {})
+  }, [reservas, config, SCfg])
 
   const confirm  = (msg, onOk) => setModal({ type: 'confirm', msg, onOk })
   const infoModal = msg => setModal({ type: 'info', msg })
