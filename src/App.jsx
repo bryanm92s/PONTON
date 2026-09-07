@@ -2342,9 +2342,11 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
       // Si era una categoría personalizada, quitarla también de la lista
       // de personalizadas para que no vuelva a aparecer al recargar.
       if (customCats.includes(cat)) {
-        const nextCustom = customCats.filter(c => c !== cat)
-        try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(nextCustom)) } catch {}
-        setCustomCats(nextCustom)
+        setCustomCats(prev => {
+          const nextCustom = prev.filter(c => c !== cat)
+          try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(nextCustom)) } catch {}
+          return nextCustom
+        })
       }
       infoModal('Categoría "' + cat + '" eliminada del listado.')
     })
