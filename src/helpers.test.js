@@ -145,6 +145,14 @@ describe('buildMonthBooked / monthCells', () => {
     ])
     expect(Object.keys(map).sort()).toEqual(['2026-09-05', '2026-09-20'])
   })
+  it('buildMonthBooked ignora reservas CANCELADAS y FINALIZADAS para liberar el día', () => {
+    const map = buildMonthBooked(2026, 9, [
+      { id: 'R1', fecha: '2026-09-05' },
+      { id: 'R2', fecha: '2026-09-10', estadoOp: 'CANCELADA' },
+      { id: 'R3', fecha: '2026-09-15', estadoOp: 'FINALIZADA' },
+    ])
+    expect(Object.keys(map).sort()).toEqual(['2026-09-05'])
+  })
   it('monthCells empieza en lunes', () => {
     // Septiembre 2026 empieza en martes (getDay = 2 → startDow = 1)
     const cells = monthCells(2026, 9)

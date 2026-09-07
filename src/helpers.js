@@ -193,10 +193,13 @@ export const enrichReservas = (reservas, payments) =>
   });
 
 // Mapa date → reserva para el mes indicado (calendario).
+// Las reservas CANCELADAS o FINALIZADAS no cuentan como ocupadas: el día
+// vuelve a estar disponible para crear una reserva nueva.
 export const buildMonthBooked = (year, month, reservas) => {
   const prefix = `${year}-${String(month).padStart(2, '0')}`;
   const map = {};
   (Array.isArray(reservas) ? reservas : []).forEach(r => {
+    if (r.estadoOp === 'CANCELADA' || r.estadoOp === 'FINALIZADA') return;
     const d = cleanDate(r.fecha);
     if (d.startsWith(prefix)) map[d] = r;
   });

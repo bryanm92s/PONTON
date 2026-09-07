@@ -911,11 +911,11 @@ function CalendarView({ enriched, setTab }) {
 
   // Acordeón: listas de reservas por estado para verlas sin tocar el calendario.
   const grupos = {
-    hoy:       enriched.filter(r => r.fecha === todayD).slice().sort((a, b) => (a.hora || '').localeCompare(b.hora || '')),
-    futuras:   enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
+    hoy:        enriched.filter(r => r.fecha === todayD && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (a.hora || '').localeCompare(b.hora || '')),
+    futuras:    enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
       .slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
-    pasadas:   enriched.filter(r => r.fecha < todayD || r.estadoOp === 'FINALIZADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
-      .slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+    pasadas:    enriched.filter(r => r.fecha < todayD && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+    canceladas: enriched.filter(r => r.estadoOp === 'CANCELADA').slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
   }
 
   return (
@@ -1003,9 +1003,10 @@ function CalendarView({ enriched, setTab }) {
       {/* ── Acordeón de reservas ──────────────────────────── */}
       <div style={{ marginTop: 24 }}>
         {[
-          ['Hoy',       grupos.hoy,     true],
-          ['Futuras',   grupos.futuras, true],
-          ['Pasadas', grupos.pasadas, false],
+          ['Hoy',        grupos.hoy,        true],
+          ['Futuras',    grupos.futuras,    true],
+          ['Pasadas',    grupos.pasadas,    false],
+          ['Canceladas', grupos.canceladas, false],
         ].map(([title, list, open]) => (
           <details key={title} open={open} className="card" style={{ marginBottom: 10, padding: 0, overflow: 'hidden' }}>
             <summary style={{
@@ -1014,7 +1015,7 @@ function CalendarView({ enriched, setTab }) {
               borderBottom: '1px solid var(--border)',
               listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <span style={{ fontSize: 14, letterSpacing: '.04em' }}>{title}</span>
+              <span style={{ fontSize: 14, letterSpacing: '.04em', color: title === 'Canceladas' ? 'var(--red)' : undefined }}>{title}</span>
               <span style={{
                 fontSize: 12, fontWeight: 700, color: 'var(--t2)',
                 background: 'var(--gray-bg)', padding: '2px 9px', borderRadius: 999,
@@ -1373,7 +1374,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
       ? '¿Cancelar la reserva ' + r.id + '? Los ' + pagosDeLaReserva.length + ' abono(s) por ' + fmtPeso(pagosDeLaReserva.reduce((s, p) => s + toN(p.monto), 0)) + ' también se eliminarán. El día se liberará.'
       : '¿Cancelar la reserva ' + r.id + '? El día se liberará.'
     confirm(msg, async () => {
-      const updated = { ...r, estadoOp: 'CANCELADA' }
+      const updated = { ...r, estadoOp: 'CANCELADA', calendarEventId: '' }
       delete updated.totalPagado; delete updated.totalRestante; delete updated.pagoEstado
       const sinEsta = (Array.isArray(reservasRef.current) ? reservasRef.current : []).filter(x => x.id !== r.id)
       await SR([...sinEsta, updated])
