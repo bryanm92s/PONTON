@@ -90,6 +90,18 @@ describe('dayBooked', () => {
   it('excludeId permite ignorar la propia reserva al editar', () => {
     expect(dayBooked(reservas, '2026-09-10', 'RES-0001')).toBe(false)
   })
+  it('libera el día cuando la reserva está CANCELADA', () => {
+    const withCancelada = [
+      { id: 'RES-0001', fecha: '2026-09-10', estadoOp: 'CANCELADA' },
+    ]
+    expect(dayBooked(withCancelada, '2026-09-10')).toBe(false)
+  })
+  it('libera el día cuando la reserva está FINALIZADA', () => {
+    const withFinalizada = [
+      { id: 'RES-0001', fecha: '2026-09-10', estadoOp: 'FINALIZADA' },
+    ]
+    expect(dayBooked(withFinalizada, '2026-09-10')).toBe(false)
+  })
 })
 
 describe('estadoOpEfectivo', () => {

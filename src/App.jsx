@@ -130,7 +130,7 @@ const buildReservaMessage = (r, puntoEncuentro, contacto, nombreNegocio) => {
     '',
     CHECK + ' *Reserva:* ' + r.id,
     CAL + ' *Fecha del recorrido:* ' + fmtDate(r.fecha),
-    CLOCK + ' *Salida:* ' + fmtTime(HORA_SALIDA) + ' — *Regreso:* ' + fmtTime(HORA_LLEGADA),
+    CLOCK + ' *Salida:* ' + fmtTime(r.hora || HORA_SALIDA) + ' — *Regreso:* ' + fmtTime(HORA_LLEGADA),
     PEOPLE + ' *Personas:* ' + r.personas,
     CARD + ' *Valor:* ' + fmtPeso(r.valor),
     CARD + ' *Abono:* ' + fmtPeso(r.totalPagado || 0),
