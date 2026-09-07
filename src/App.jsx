@@ -98,8 +98,6 @@ const BIZ_LOGO     = import.meta.env.VITE_BIZ_LOGO     || ''
 // Horario fijo del recorrido (no se pregunta al cliente)
 const HORA_SALIDA  = '10:00'
 const HORA_LLEGADA = '17:00'
-// Hora límite para aceptar reservas el día de hoy (después de las 9 ya no se puede)
-const HORA_CORTE_HOY = 10
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 const capFirst = s => { const t = String(s || '').trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1) : t }
@@ -867,7 +865,16 @@ function ReservaRow({ r, onClick, showDate }) {
     onMouseLeave={e => { e.currentTarget.style.background = '' }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.clientName || '—'}</div>
+        <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {r.estadoOp === 'EN_CURSO' && (
+            <span
+              className="fa-solid fa-circle-dot fa-beat"
+              title="En curso"
+              style={{ color: '#9A1F1F', fontSize: 11, lineHeight: 1, display: 'inline-block', flexShrink: 0 }}
+            >{'●'}</span>
+          )}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.clientName || '—'}</span>
+        </div>
         <div style={{ fontSize: 12, color: 'var(--t2)' }}>
           {showDate && <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{fmtDate(r.fecha)} · </span>}
           {fmtTime(r.hora)} · {r.personas} pers · {fmtPeso(r.valor)}
@@ -891,7 +898,6 @@ function CalendarView({ enriched, setTab }) {
   const cells = useMemo(() => monthCells(y, m), [y, m])
   const booked = useMemo(() => buildMonthBooked(y, m, enriched), [y, m, enriched])
   const todayD = todayStr()
-  const pastCutoff = today.getHours() >= HORA_CORTE_HOY
 
   const monthName = new Date(y, m - 1, 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
 
@@ -941,9 +947,8 @@ function CalendarView({ enriched, setTab }) {
             if (!d) return <div key={i} />
             const r = booked[d]
             const isPast = d < todayD
-            const isTodayBlocked = d === todayD && pastCutoff
             const isToday = d === todayD
-            const blocked = isPast || isTodayBlocked
+            const blocked = isPast
             const s = state(r, blocked)
             const day = Number(d.slice(8))
             const interactive = !blocked || r
@@ -1000,8 +1005,8 @@ function CalendarView({ enriched, setTab }) {
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span style={{ display: 'inline-block', width: 14, height: 14, background: 'transparent', border: '1px dashed var(--border)', borderRadius: 4 }} />Pasado</span>
       </div>
 
-      <button className="btn-pri" style={{ width: '100%', marginTop: 20, padding: 15, fontSize: 15 }} onClick={() => setTab('new-reserva', todayStr())} disabled={pastCutoff}>
-        {pastCutoff ? 'Ya pasaron las ' + HORA_CORTE_HOY + ':00 — no se puede reservar hoy' : '+ Nueva reserva'}
+      <button className="btn-pri" style={{ width: '100%', marginTop: 20, padding: 15, fontSize: 15 }} onClick={() => setTab('new-reserva', todayStr())}>
+        + Nueva reserva
       </button>
 
       {/* ── Acordeón de reservas ──────────────────────────── */}
@@ -1058,11 +1063,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
   const dayBusy = dayBooked(reservas, fecha)
   const overPax = toN(personas) < 1 || toN(personas) > MAX_PAX
   const restVal = toN(valor) - toN(abono)
-  // No permitir reservar para hoy si ya pasaron las 9:00 a.m.
-  const now = new Date()
-  const isToday = fecha === todayStr()
-  const pastCutoff = isToday && now.getHours() >= HORA_CORTE_HOY
-  const canSubmit = !dayBusy && !overPax && !pastCutoff
+  const canSubmit = !dayBusy && !overPax
 
   // Si el celular escrito coincide con un cliente existente y aún no
   // tocaron el nombre, autocompletarlo (no se duplica el cliente).
@@ -1079,7 +1080,6 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
 
   const submit = async () => {
     if (dayBusy) { infoModal('El día ' + fmtDate(fecha) + ' ya está reservado.'); return }
-    if (pastCutoff) { infoModal('Ya pasaron las ' + HORA_CORTE_HOY + ':00 a.m. No se puede reservar para hoy.'); return }
     // Validar nombre
     const errNombre = validarNombre(nombre)
     if (errNombre) { infoModal(errNombre); return }
@@ -1175,7 +1175,6 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
         <label className="lbl">Fecha</label>
         <input type="date" className="inp" value={fecha} min={todayStr()} onChange={e => setFecha(e.target.value)} />
         {dayBusy && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>⚠ Este día ya está reservado</div>}
-        {pastCutoff && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>⚠ Ya son más de las {HORA_CORTE_HOY}:00 a.m. — no se puede reservar para hoy</div>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -1292,14 +1291,10 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
 
   // Validación de fecha: si la cambia a un día ocupado por OTRA reserva, no dejamos.
   const dayBusyOther = !locked && fecha !== r.fecha && dayBooked(reservas, fecha, r.id)
-  // Corte de 9 a.m. para hoy (no se puede mover a hoy si ya pasaron las 9)
-  const now = new Date()
-  const pastCutoff = !locked && fecha === todayStr() && now.getHours() >= HORA_CORTE_HOY
 
   const save = async () => {
     if (overPax) { infoModal('La cantidad de personas debe estar entre 1 y ' + MAX_PAX + '.'); return }
     if (dayBusyOther) { infoModal('El día ' + fmtDate(fecha) + ' ya está reservado por otra reserva.'); return }
-    if (pastCutoff) { infoModal('Ya pasaron las ' + HORA_CORTE_HOY + ':00 a.m. No puedes mover la reserva a hoy.'); return }
     const errNombreSave = validarNombre(nombre)
     if (errNombreSave) { infoModal(errNombreSave); return }
     if (celular.trim()) {
@@ -1428,7 +1423,6 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
           <label className="lbl">Fecha</label>
           <input type="date" className="inp" value={fecha} min={todayStr()} onChange={e => setFecha(e.target.value)} style={{ marginBottom: 8 }} />
           {dayBusyOther && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 6 }}>⚠ Ese día ya está reservado por otra reserva</div>}
-          {pastCutoff && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 6 }}>⚠ Ya son más de las {HORA_CORTE_HOY}:00 — no puedes mover a hoy</div>}
           <label className="lbl">Nombre del cliente</label>
           <input className="inp" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre" style={{ marginBottom: 8 }} />
           <label className="lbl">Celular</label>
@@ -1444,7 +1438,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
         {r.estadoOp !== 'FINALIZADA' && r.estadoOp !== 'CANCELADA' && (
           <button className="btn-sec" style={{ flex: 1 }} onClick={reWA}>📱 Reenviar WhatsApp</button>
         )}
-        {!locked && <button className="btn-pri" style={{ flex: 1 }} onClick={save} disabled={overPax || dayBusyOther || pastCutoff}>Guardar</button>}
+        {!locked && <button className="btn-pri" style={{ flex: 1 }} onClick={save} disabled={overPax || dayBusyOther}>Guardar</button>}
       </div>
 
       {pagosReserva.length > 0 && (
