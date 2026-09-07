@@ -2633,9 +2633,9 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
                       {g.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{g.nota}</div> : null}
                     </div>
                     <b style={{ color: 'var(--red)' }}>−{fmtPeso(g.monto)}</b>
-                    <button onClick={() => setEditandoGasto(g)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Editar gasto">✏️</button>
+                    <button onClick={(e) => { e.stopPropagation(); setEditandoGasto(g); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Editar gasto">✏️</button>
                     {!esDelViaje && (
-                      <button onClick={() => confirm('¿Eliminar este gasto de ' + fmtPeso(g.monto) + '?', () => deleteGasto(g.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Eliminar gasto">🗑</button>
+                      <button onClick={(e) => { e.stopPropagation(); confirm('¿Eliminar este gasto de ' + fmtPeso(g.monto) + '?', () => deleteGasto(g.id)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Eliminar gasto">🗑</button>
                     )}
                   </div>
                 )
