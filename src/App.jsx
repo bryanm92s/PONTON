@@ -7,6 +7,7 @@ import {
   estadoOpEfectivo, enrichReservas, buildMonthBooked, monthCells, nextReservaId,
   normalizeCategoria, categoriasDeGastos,
   validarCelular, validarNombre, validarNota, parseMonto,
+  DEFAULT_CONFIG,
 } from './helpers.js'
 
 /* ══════════════════════════════════════════════════════════════
@@ -178,7 +179,7 @@ const buildAbonoMessage = (res, pagos, pe, contacto, nombreNegocio) => {
     '¡Hola ' + res.clientName + '! ' + WAVE + ' Te informamos sobre tu reserva en el pontón ' + toFancyScript(nombreNegocio || BIZ_NAME) + ':',
     '',
     CHECK + ' *Reserva:* ' + res.id,
-    CAL + ' *Fecha del recorrido:* ' + fmtDate(res.fecha),
+    CAL + ' *Fecha del recorrido:* ' + fmtDate(res.fecha) + ' ' + fmtTime(res.hora || HORA_SALIDA),
     CARD + ' *Por un valor de:* ' + fmtPeso(valor),
   ]
   lista.forEach((p, i) => {
@@ -214,7 +215,7 @@ const buildAbonoMessage = (res, pagos, pe, contacto, nombreNegocio) => {
 export default function App() {
   const [tab,        setTabRaw] = useState('dashboard')
   const [tabExtra,   setTabExtra] = useState(null)
-  const [config,     setConfig] = useState({ saldoInicial: '0', puntoEncuentro: '' })
+  const [config,     setConfig] = useState(DEFAULT_CONFIG)
   const [clients,    setC]   = useState([])
   const [reservas,   setR]   = useState([])
   const [payments,   setP]   = useState([])
@@ -261,7 +262,7 @@ export default function App() {
     if (!import.meta.env.VITE_SCRIPT_URL) { setSt('noconfig'); return }
     if (!silent) setSt('loading')
     loadData().then(d => {
-      const cfg = d.config || { saldoInicial: '0', puntoEncuentro: '' }
+      const cfg = d.config || DEFAULT_CONFIG
       const cls = Array.isArray(d.clients) ? d.clients : []
       const rsv = Array.isArray(d.reservations) ? d.reservations : []
       const pay = Array.isArray(d.payments) ? d.payments : []
@@ -287,7 +288,7 @@ export default function App() {
     }).catch(e => {
       setEM(e.message); setSt('error')
       try {
-        setConfig(JSON.parse(localStorage.getItem('pn_cfg') || 'null') || { saldoInicial: '0', puntoEncuentro: '' })
+        setConfig(JSON.parse(localStorage.getItem('pn_cfg') || 'null') || DEFAULT_CONFIG)
         setC(JSON.parse(localStorage.getItem('pn_c') || '[]'))
         setR(JSON.parse(localStorage.getItem('pn_r') || '[]'))
         setP(JSON.parse(localStorage.getItem('pn_p') || '[]'))
@@ -437,7 +438,7 @@ export default function App() {
   const resetAll = useCallback(async () => {
     const calRes = reservas.filter(a => a.calendarEventId)
     calRes.forEach(a => { saveData({ action: 'deleteCalendarEvent', eventId: a.calendarEventId }).catch(() => {}) })
-    const empty = { config: { saldoInicial: '0', puntoEncuentro: '' }, clients: [], reservations: [], payments: [], expenses: [] }
+    const empty = { config: { ...DEFAULT_CONFIG }, clients: [], reservations: [], payments: [], expenses: [] }
     setConfig(empty.config); setC([]); setR([]); setP([]); setE([])
     try { ['pn_c', 'pn_r', 'pn_p', 'pn_e', 'pn_cfg'].forEach(k => localStorage.removeItem(k)) } catch {}
     setSt('saving')
@@ -547,6 +548,7 @@ export default function App() {
         {tab === 'lista-en-curso' && <ListaFiltrada  {...p} filter={r => r.estadoOp === 'EN_CURSO'} titulo="Reservas en curso" emoji="🟢" emptyMsg="No hay reservas en curso ahora" />}
         {tab === 'lista-futuras'  && <ListaFiltrada  {...p} filter={r => r.fecha > todayStr() && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA'} titulo="Reservas futuras" emoji="📆" emptyMsg="Aún no tienes reservas próximas" />}
         {tab === 'lista-por-cobrar' && <ListaFiltrada {...p} filter={r => r.estadoOp !== 'CANCELADA' && r.pagoEstado !== 'PAGADO'} titulo="Por cobrar" emoji="💳" emptyMsg="No hay reservas pendientes de pago" />}
+        {tab === 'lista-pagadas'   && <ListaFiltrada {...p} filter={r => r.estadoOp !== 'CANCELADA' && r.pagoEstado === 'PAGADO'} titulo="Pagadas" emoji="✅" emptyMsg="Aún no hay reservas pagadas" />}
         {tab === 'client-history' && <ClientHistory  {...p} />}
       </main>
 
@@ -777,6 +779,7 @@ function Dashboard({ enriched, payments, expenses, config, setTab }) {
   const futuras = enriched.filter(r => r.fecha > hoy && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
   const enCurso = enriched.filter(r => r.estadoOp === 'EN_CURSO')
   const pendientesPago = enriched.filter(r => r.estadoOp !== 'CANCELADA' && r.pagoEstado !== 'PAGADO')
+  const pagadas = enriched.filter(r => r.estadoOp !== 'CANCELADA' && r.pagoEstado === 'PAGADO')
   const totalIngresos = (Array.isArray(payments) ? payments : []).reduce((s, p) => s + toN(p.monto), 0)
   const totalGastos = (Array.isArray(expenses) ? expenses : []).reduce((s, e) => s + toN(e.monto), 0)
   const saldo = toN(config.saldoInicial) + totalIngresos - totalGastos
@@ -802,11 +805,12 @@ function Dashboard({ enriched, payments, expenses, config, setTab }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 18 }}>
         <Tile icon="📅" label="Hoy"          val={reservasHoy.length}  onClick={() => setTab('lista-hoy')} />
         <Tile icon="🟢" label="En curso"     val={enCurso.length}      onClick={() => setTab('lista-en-curso')} />
         <Tile icon="📆" label="Futuras"      val={futuras.length}      onClick={() => setTab('lista-futuras')} />
         <Tile icon="💳" label="Por cobrar"   val={pendientesPago.length} onClick={() => setTab('lista-por-cobrar')} />
+        <Tile icon="✅" label="Pagadas"      val={pagadas.length}      onClick={() => setTab('lista-pagadas')} />
       </div>
 
       {reservasHoy.length > 0 && (
@@ -2128,7 +2132,13 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
   const [fecha,      setFecha]      = useState(todayStr())
   const [nota,       setNota]       = useState('')
 
-  const cats = categoriasDeGastos(expenses)
+  // Combinar categorías con gastos + personalizadas (creadas desde
+  // "Gestionar categorías" sin gastos aún) para mostrarlas todas en el
+  // selector sin que el usuario tenga que crear la categoría inline.
+  const customCats = (() => {
+    try { return JSON.parse(localStorage.getItem('pn_cats_custom') || '[]') || [] } catch { return [] }
+  })()
+  const cats = Array.from(new Set([...categoriasDeGastos(expenses), ...customCats]))
 
   const onChangeMonto = e => {
     const v = e.target.value
@@ -2211,11 +2221,19 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
   // (incluso entre recargas de Sheets). Las predeterminadas que el usuario
   // nunca use pueden eliminarse sin perderlas en Sheets.
   const OCULTAS_KEY = 'pn_cats_ocultas'
+  const CUSTOM_KEY  = 'pn_cats_custom'
   const [ocultas, setOcultas] = useState(() => {
     try { return JSON.parse(localStorage.getItem(OCULTAS_KEY) || '[]') || [] } catch { return [] }
   })
+  // Categorías personalizadas que el usuario creó desde aquí (sin gastos aún).
+  // Se persisten para que aparezcan en el selector de "Nuevo gasto" sin
+  // necesidad de tener un gasto asociado.
+  const [customCats, setCustomCats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]') || [] } catch { return [] }
+  })
   // Filtrar las categorías predeterminadas que el usuario ha ocultado.
-  const catsBase = categoriasDeGastos(expenses)
+  // Se combinan las categorías con gastos + las personalizadas (sin gastos aún).
+  const catsBase = Array.from(new Set([...categoriasDeGastos(expenses), ...customCats]))
   const cats = catsBase.filter(c => !ocultas.includes(c))
   const gastosPorCat = (cat) => (Array.isArray(expenses) ? expenses : []).filter(e => e.categoria === cat)
   const enUso = (cat) => gastosPorCat(cat).length
@@ -2255,6 +2273,13 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
       const nextOcultas = Array.from(new Set([...ocultas, cat]))
       try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(nextOcultas)) } catch {}
       setOcultas(nextOcultas)
+      // Si era una categoría personalizada, quitarla también de la lista
+      // de personalizadas para que no vuelva a aparecer al recargar.
+      if (customCats.includes(cat)) {
+        const nextCustom = customCats.filter(c => c !== cat)
+        try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(nextCustom)) } catch {}
+        setCustomCats(nextCustom)
+      }
       infoModal('Categoría "' + cat + '" eliminada del listado.')
     })
   }
@@ -2266,12 +2291,14 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
       infoModal('Ya existe una categoría con ese nombre.')
       return
     }
-    // Para que la categoría aparezca en el listado, hay que tener al menos
-    // un gasto con esa categoría. La guardamos en el listado de "ocultas
-    // pendientes" para que aparezca al menos con 0 gastos, y se quite al
-    // recibir el primer gasto (no es crítico, pero mejora la UX).
+    // Persistir la nueva categoría para que aparezca de inmediato en el
+    // listado y en el selector de "Nuevo gasto", aunque aún no tenga
+    // gastos asociados.
+    const nextCustom = Array.from(new Set([...customCats, nombre]))
+    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(nextCustom)) } catch {}
+    setCustomCats(nextCustom)
     setShowNueva(false); setNuevaCat('')
-    infoModal('Categoría "' + nombre + '" lista. Aparecerá en el listado al registrar el primer gasto con ella.')
+    infoModal('Categoría "' + nombre + '" creada.')
   }
 
   return (

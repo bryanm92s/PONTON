@@ -6,6 +6,18 @@
 
 export const MAX_PAX = 12; // capacidad máxima del pontón
 
+// Configuración por defecto al iniciar o al resetear la app.
+// Estos valores son los que se persisten en la hoja "Config" de Sheets
+// cuando el usuario presiona "Resetear todo" o cuando aún no existe
+// ninguna configuración guardada.
+export const DEFAULT_CONFIG = {
+  saldoInicial: '0',
+  puntoEncuentro: 'Muelle de la policía, Cra. 1, San Andrés.',
+  negocioNombre: 'La Luz de Emi 2',
+  contactoNombre: '',
+  contactoCelular: '',
+};
+
 // Horas de inicio del recorrido (09:00 → 17:00), en pasos de 30 min.
 export const RESERVA_HORAS = [];
 for (let h = 9; h <= 17; h++) {
