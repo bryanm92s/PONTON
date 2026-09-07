@@ -2019,6 +2019,8 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
   const [editing, setEditing] = useState(null)
   const [eNombre, setENombre] = useState('')
   const [eCelular, setECelular] = useState('')
+  // Estado para reabrir modal tras error de validación
+  const [pendingNew, setPendingNew] = useState(null)
 
   const list = (Array.isArray(clients) ? clients : [])
     .filter(c => !q || phoneMatch(c.celular, q) || (c.nombre || '').toLowerCase().includes(q.toLowerCase()))
@@ -2079,9 +2081,9 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
     if (nCelular.trim()) {
       const errNC = validarCelular(nCelular)
       if (errNC) {
-        // Cerramos primero el modal local para que el error global quede visible
+        // Guardar datos y reabrir modal tras cerrar el error
+        setPendingNew({ nombre: nNombre, celular: nCelular })
         setShowNew(false)
-        setNNombre(''); setNCelular('')
         setTimeout(() => infoModal(errNC), 50)
         return
       }
@@ -2105,6 +2107,16 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
     setNNombre(''); setNCelular(''); setShowNew(false)
     infoModal('Cliente "' + normalizeCategoria(nNombre) + '" creado.')
   }
+
+  // Reabrir modal de nuevo cliente si quedó pendiente tras un error de validación
+  useEffect(() => {
+    if (pendingNew) {
+      setNNombre(pendingNew.nombre)
+      setNCelular(pendingNew.celular)
+      setShowNew(true)
+      setPendingNew(null)
+    }
+  }, [pendingNew])
 
   return (
     <div>
