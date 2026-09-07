@@ -601,11 +601,11 @@ export default function App() {
         {tab === 'pago'          && <RegistrarPago  {...p} />}
         {tab === 'nuevo-gasto'   && <NuevoGasto     {...p} />}
         {tab === 'categorias'    && <GestionCategorias {...p} />}
-        {tab === 'lista-hoy'     && <ListaFiltrada  {...p} filter={r => r.fecha === todayStr() && r.estadoOp !== 'CANCELADA'} titulo="Reservas de hoy" emoji="📅" emptyMsg="No hay reservas para hoy" />}
-        {tab === 'lista-en-curso' && <ListaFiltrada  {...p} filter={r => r.estadoOp === 'EN_CURSO'} titulo="Reservas en curso" emoji="🟢" emptyMsg="No hay reservas en curso ahora" />}
-        {tab === 'lista-futuras'  && <ListaFiltrada  {...p} filter={r => r.fecha > todayStr() && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA'} titulo="Reservas futuras" emoji="📆" emptyMsg="Aún no tienes reservas próximas" />}
-        {tab === 'lista-por-cobrar' && <ListaFiltrada {...p} filter={r => r.estadoOp !== 'CANCELADA' && r.pagoEstado !== 'PAGADO'} titulo="Por cobrar" emoji="💳" emptyMsg="No hay reservas pendientes de pago" />}
-        {tab === 'lista-pagadas'   && <ListaFiltrada {...p} filter={r => r.estadoOp !== 'CANCELADA' && r.pagoEstado === 'PAGADO'} titulo="Pagadas" emoji="✅" emptyMsg="Aún no hay reservas pagadas" />}
+        {tab === 'lista-hoy'     && <ListaFiltrada  {...p} filter={(r) => r.fecha === todayStr() && r.estadoOp !== 'CANCELADA'} titulo="Hoy" emoji="📅" emptyMsg="No hay reservas para hoy" filterName="hoy" />}
+        {tab === 'lista-en-curso' && <ListaFiltrada  {...p} filter={(r) => r.estadoOp === 'EN_CURSO'} titulo="En curso" emoji="🟢" emptyMsg="No hay reservas en curso ahora" filterName="en-curso" />}
+        {tab === 'lista-futuras'  && <ListaFiltrada  {...p} filter={(r) => r.fecha > todayStr() && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA'} titulo="Próximas" emoji="📆" emptyMsg="Aún no tienes reservas próximas" filterName="futuras" />}
+        {tab === 'lista-por-cobrar' && <ListaFiltrada {...p} filter={(r) => r.estadoOp !== 'CANCELADA' && r.pagoEstado !== 'PAGADO'} titulo="Por cobrar" emoji="💳" emptyMsg="No hay reservas pendientes de pago" filterName="por-cobrar" />}
+        {tab === 'lista-pagadas'   && <ListaFiltrada {...p} filter={(r) => r.estadoOp !== 'CANCELADA' && r.pagoEstado === 'PAGADO'} titulo="Pagadas" emoji="✅" emptyMsg="Aún no hay reservas pagadas" filterName="pagadas" />}
         {tab === 'client-history' && <ClientHistory  {...p} />}
       </main>
 
@@ -835,11 +835,11 @@ function OpBadge({ estado }) {
 ══════════════════════════════════════════════════════════════ */
 function Dashboard({ enriched, payments, expenses, config, setTab }) {
   const hoy = todayStr()
-  const reservasHoy = enriched.filter(r => r.fecha === hoy && r.estadoOp !== 'CANCELADA')
-  const futuras = enriched.filter(r => r.fecha > hoy && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
-  const enCurso = enriched.filter(r => r.estadoOp === 'EN_CURSO')
-  const pendientesPago = enriched.filter(r => r.estadoOp !== 'CANCELADA' && r.pagoEstado !== 'PAGADO')
-  const pagadas = enriched.filter(r => r.estadoOp !== 'CANCELADA' && r.pagoEstado === 'PAGADO')
+  const reservasHoy = enriched.filter(r => r.fecha === hoy && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (a.hora || '').localeCompare(b.hora || ''))
+  const proximas = enriched.filter(r => r.fecha > hoy && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
+  const enCurso = enriched.filter(r => r.estadoOp === 'EN_CURSO').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
+  const pendientesPago = enriched.filter(r => r.estadoOp !== 'CANCELADA' && r.pagoEstado !== 'PAGADO').slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+  const pagadas = enriched.filter(r => r.estadoOp !== 'CANCELADA' && r.pagoEstado === 'PAGADO').slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
   const totalIngresos = (Array.isArray(payments) ? payments : []).reduce((s, p) => s + toN(p.monto), 0)
   const totalGastos = (Array.isArray(expenses) ? expenses : []).reduce((s, e) => s + toN(e.monto), 0)
   const saldo = toN(config.saldoInicial) + totalIngresos - totalGastos
@@ -868,7 +868,7 @@ function Dashboard({ enriched, payments, expenses, config, setTab }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 18 }}>
         <Tile icon="📅" label="Hoy"          val={reservasHoy.length}  onClick={() => setTab('lista-hoy')} />
         <Tile icon="🟢" label="En curso"     val={enCurso.length}      onClick={() => setTab('lista-en-curso')} />
-        <Tile icon="📆" label="Futuras"      val={futuras.length}      onClick={() => setTab('lista-futuras')} />
+        <Tile icon="📆" label="Próximas"     val={proximas.length}     onClick={() => setTab('lista-futuras')} />
         <Tile icon="💳" label="Por cobrar"   val={pendientesPago.length} onClick={() => setTab('lista-por-cobrar')} />
         <Tile icon="✅" label="Pagadas"      val={pagadas.length}      onClick={() => setTab('lista-pagadas')} />
       </div>
@@ -984,9 +984,10 @@ function CalendarView({ enriched, setTab }) {
   // Acordeón: listas de reservas por estado para verlas sin tocar el calendario.
   const grupos = {
     hoy:        enriched.filter(r => r.fecha === todayD && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (a.hora || '').localeCompare(b.hora || '')),
-    futuras:    enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
+    proximas:   enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
       .slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
-    pasadas:    enriched.filter(r => r.fecha < todayD && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
+    pasadas:    enriched.filter(r => r.fecha < todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
+    finalizadas: enriched.filter(r => r.estadoOp === 'FINALIZADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
     canceladas: enriched.filter(r => r.estadoOp === 'CANCELADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
   }
 
@@ -1075,8 +1076,9 @@ function CalendarView({ enriched, setTab }) {
       <div style={{ marginTop: 24 }}>
         {[
           ['Hoy',        grupos.hoy,        true],
-          ['Futuras',    grupos.futuras,    true],
+          ['Próximas',   grupos.proximas,   true],
           ['Pasadas',    grupos.pasadas,    false],
+          ['Finalizadas', grupos.finalizadas, false],
           ['Canceladas', grupos.canceladas, false],
         ].map(([title, list, open]) => (
           <details key={title} open={open} className="card" style={{ marginBottom: 10, padding: 0, overflow: 'hidden' }}>
@@ -1492,7 +1494,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
           <label className="lbl">Nombre del cliente</label>
           <input className="inp" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre" style={{ marginBottom: 8 }} />
           <label className="lbl">Celular</label>
-          <input className="inp" value={celular} onChange={e => setCelular(e.target.value)} inputMode="tel" placeholder="3001234567" style={{ marginBottom: 8 }} />
+          <input className="inp" value={celular} onChange={e => setCelular(e.target.value.replace(/\D/g, ''))} inputMode="tel" placeholder="3001234567" style={{ marginBottom: 8 }} />
           <label className="lbl">Personas (máx {MAX_PAX})</label>
           <input type="number" min="1" max={MAX_PAX} className="inp" value={personas} onChange={e => setPersonas(e.target.value)} style={{ marginBottom: 8 }} />
           <label className="lbl">Valor total</label>
@@ -1965,12 +1967,13 @@ function ReservasTab({ enriched, setTab }) {
 /* ══════════════════════════════════════════════════════════════
    LISTAS FILTRADAS (Hoy / En curso / Futuras / Por cobrar)
 ══════════════════════════════════════════════════════════════ */
-function ListaFiltrada({ enriched, setTab, goBack, filter, titulo, emoji, emptyMsg, accent }) {
+function ListaFiltrada({ enriched, setTab, goBack, filter, titulo, emoji, emptyMsg, accent, filterName }) {
   const today = todayStr()
+  const fn = filterName || 'default'
   const list = enriched.filter(filter).slice().sort((a, b) => {
-    // Hoy: por hora ascendente. Futuras: por fecha ascendente. Pasadas/Por cobrar: por fecha desc.
-    if (filter === 'hoy') return (a.hora || '').localeCompare(b.hora || '')
-    if (filter === 'futuras') return (a.fecha || '').localeCompare(b.fecha || '')
+    // Hoy: por hora ascendente. Próximas: por fecha ascendente. Por cobrar/Pagadas: por fecha descendente.
+    if (fn === 'hoy') return (a.hora || '').localeCompare(b.hora || '')
+    if (fn === 'futuras' || fn === 'proximas') return (a.fecha || '').localeCompare(b.fecha || '')
     return (b.fecha || '').localeCompare(a.fecha || '')
   })
 
@@ -2135,7 +2138,7 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
           <label className="lbl">Nombre</label>
           <input className="inp" autoFocus value={nNombre} onChange={e => setNNombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
           <label className="lbl">Celular (opcional)</label>
-          <input className="inp" value={nCelular} onChange={e => setNCelular(e.target.value)} inputMode="tel" placeholder="3001234567" />
+          <input className="inp" value={nCelular} onChange={e => setNCelular(e.target.value.replace(/\D/g, ''))} inputMode="tel" placeholder="3001234567" />
         </Modal>
       )}
 
@@ -2151,7 +2154,7 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
           <label className="lbl">Nombre</label>
           <input className="inp" autoFocus value={eNombre} onChange={e => setENombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
           <label className="lbl">Celular (opcional)</label>
-          <input className="inp" value={eCelular} onChange={e => setECelular(e.target.value)} inputMode="tel" placeholder="3001234567" />
+          <input className="inp" value={eCelular} onChange={e => setECelular(e.target.value.replace(/\D/g, ''))} inputMode="tel" placeholder="3001234567" />
         </Modal>
       )}
     </div>
@@ -2164,19 +2167,31 @@ function ClientHistory({ clients, enriched, setTab, tabExtra, goBack }) {
   // Ordenar por fecha más reciente de la reserva de primeras
   const list = enriched.filter(r => r.clientId === c.id)
     .slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+  // Paginación: 5 por página
+  const [page, setPage] = useState(0)
+  const PAGE_SIZE = 5
+  const totalPages = Math.ceil(list.length / PAGE_SIZE)
+  const pageList = list.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   return (
     <div>
       <button onClick={goBack} className="btn-sec" style={{ marginBottom: 14 }}>← Volver</button>
       <h1 style={{ fontSize: 22, margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>{c.nombre}</h1>
       <p style={{ color: 'var(--t2)', margin: '0 0 14px' }}>{c.celular}</p>
       {list.length === 0 && <div className="card" style={{ textAlign: 'center', color: 'var(--t2)' }}>Sin reservas aún</div>}
-      {list.map(r => (
+      {pageList.map(r => (
         <div key={r.id} className="card" style={{ marginBottom: 8, padding: '10px 14px', cursor: 'pointer' }}
           onClick={() => setTab('edit-reserva', r.id)}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{fmtTime(r.hora)} · {r.personas} pers · {fmtPeso(r.valor)}</div>
-          <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2 }}>{fmtDate(r.fecha)}</div>
-        </div>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{fmtTime(r.hora)} · {r.personas} pers · {fmtPeso(r.valor)}</div>
+        <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2 }}>{fmtDate(r.fecha)}</div>
+      </div>
       ))}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 12 }}>
+          <button className="btn-sec" style={{ padding: '4px 8px' }} disabled={page === 0} onClick={() => setPage(page - 1)}>‹ Anterior</button>
+          <span style={{ fontWeight: 600 }}>Página {page + 1} de {totalPages}</span>
+          <button className="btn-sec" style={{ padding: '4px 8px' }} disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>Siguiente ›</button>
+        </div>
+      )}
     </div>
   )
 }

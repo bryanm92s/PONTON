@@ -62,13 +62,12 @@ export const bool = v => v === true || v === 'true';
 
 // ── Validadores ────────────────────────────────────────────
 
-// Valida un celular: solo dígitos, al menos 7 dígitos (sin código de país).
+// Valida un celular: solo dígitos, exactamente 10 dígitos (sin código de país).
 // Devuelve null si es válido, o un mensaje de error si no.
 export const validarCelular = (raw) => {
   const s = String(raw || '').replace(/\D/g, '')
   if (!s) return 'El celular no puede estar vacío.'
-  if (s.length < 7) return 'El celular debe tener al menos 7 dígitos.'
-  if (s.length > 15) return 'El celular no puede tener más de 15 dígitos.'
+  if (s.length !== 10) return 'El celular debe tener exactamente 10 dígitos.'
   return null
 }
 
