@@ -92,8 +92,8 @@ const toFancyScript = str => {
 }
 const BIZ_NAME_FANCY = toFancyScript(BIZ_NAME)
 const BIZ_SUBTITLE = import.meta.env.VITE_BIZ_SUBTITLE || 'Reservas y operación'
-const BIZ_EMOJI    = import.meta.env.VITE_BIZ_EMOJI    || '🚤'
-const BIZ_LOGO     = import.meta.env.VITE_BIZ_LOGO     || ''
+const BIZ_EMOJI    = import.meta.env.VITE_BIZ_EMOJI    || ''
+const BIZ_LOGO     = import.meta.env.VITE_BIZ_LOGO     || '/logo.ico'
 
 // Horario fijo del recorrido (no se pregunta al cliente)
 const HORA_SALIDA  = '10:00'
@@ -245,12 +245,47 @@ export default function App() {
   // Título + favicon dinámicos
   useEffect(() => {
     document.title = BIZ_SUBTITLE ? `${BIZ_NAME} · ${BIZ_SUBTITLE}` : BIZ_NAME
+    let link = document.querySelector("link[rel~='icon']")
+    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
     if (BIZ_EMOJI) {
       const svg = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E${encodeURIComponent(BIZ_EMOJI)}%3C/text%3E%3C/svg%3E`
-      let link = document.querySelector("link[rel~='icon']")
-      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
       link.href = svg
+    } else {
+      // Sin emoji configurado: usa el logo.ico del directorio público.
+      link.href = BIZ_LOGO || '/logo.ico'
     }
+  }, [])
+
+  // Cleanup único: borrar todos los eventos que quedaron en Google Calendar
+  // (la integración quedó deshabilitada por solicitud del usuario). Se ejecuta
+  // una sola vez por dispositivo y limpia también los IDs locales para que
+  // el front no muestre puntos huérfanos en el calendario.
+  useEffect(() => {
+    const FLAG = 'pn_calendar_cleanup_v1'
+    try {
+      if (localStorage.getItem(FLAG) === 'done') return
+    } catch {}
+    let cancelled = false
+    ;(async () => {
+      try {
+        const d = await loadData()
+        if (cancelled) return
+        const rsv = Array.isArray(d.reservations) ? d.reservations : []
+        const conEvento = rsv.filter(r => r.calendarEventId)
+        // Borrar cada evento en Google Calendar (best-effort).
+        await Promise.all(conEvento.map(r =>
+          saveData({ action: 'deleteCalendarEvent', eventId: r.calendarEventId }).catch(() => null)
+        ))
+        if (cancelled) return
+        // Limpiar los IDs locales para no volver a borrarlos en el futuro.
+        if (conEvento.length > 0) {
+          const limpios = rsv.map(r => r.calendarEventId ? { ...r, calendarEventId: '' } : r)
+          await saveData({ reservations: limpios })
+        }
+        try { localStorage.setItem(FLAG, 'done') } catch {}
+      } catch {}
+    })()
+    return () => { cancelled = true }
   }, [])
 
   const savingRef = useRef(false)
@@ -465,7 +500,10 @@ export default function App() {
     tick,
   }
 
-  if (status === 'loading') return <Cent><div style={{ fontSize: 52, animation: 'pulse 2s ease-in-out infinite' }}>{BIZ_EMOJI}</div></Cent>
+  if (status === 'loading') return <Cent>{BIZ_EMOJI
+    ? <div style={{ fontSize: 52, animation: 'pulse 2s ease-in-out infinite' }}>{BIZ_EMOJI}</div>
+    : <img src={BIZ_LOGO || '/logo.ico'} alt={BIZ_NAME} style={{ height: 64, width: 'auto', objectFit: 'contain', animation: 'pulse 2s ease-in-out infinite', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }} />
+  }</Cent>
   if (status === 'noconfig') return <Cent><div style={{ fontSize: 36, marginBottom: 8 }}>⚙️</div><p style={{ fontSize: 16, fontWeight: 600 }}>Configura VITE_SCRIPT_URL y VITE_TOKEN en Vercel</p></Cent>
 
   return (
@@ -560,7 +598,10 @@ export default function App() {
       }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 16 }}>{BIZ_EMOJI}</span>
+            {BIZ_EMOJI
+              ? <span style={{ fontSize: 16 }}>{BIZ_EMOJI}</span>
+              : <img src={BIZ_LOGO || '/logo.ico'} alt={BIZ_NAME} style={{ height: 18, width: 'auto', objectFit: 'contain' }} />
+            }
             <span>{toFancyScript((config && config.negocioNombre) || BIZ_NAME)}</span>
           </span>
           <span style={{ opacity: 0.5 }}>|</span>
@@ -773,7 +814,7 @@ function OpBadge({ estado }) {
 ══════════════════════════════════════════════════════════════ */
 function Dashboard({ enriched, payments, expenses, config, setTab }) {
   const hoy = todayStr()
-  const reservasHoy = enriched.filter(r => r.fecha === hoy)
+  const reservasHoy = enriched.filter(r => r.fecha === hoy && r.estadoOp !== 'CANCELADA')
   const futuras = enriched.filter(r => r.fecha > hoy && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
   const enCurso = enriched.filter(r => r.estadoOp === 'EN_CURSO')
   const pendientesPago = enriched.filter(r => r.estadoOp !== 'CANCELADA' && r.pagoEstado !== 'PAGADO')
@@ -1142,11 +1183,13 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
       SCfg({ ...(config || {}), contadorReservas: String(numNuevo) })
     }
     // Sincronizar Calendar en background
-    saveData({ calendarEvent: newReserva }).then(r => {
-      if (r && r.calResult && r.calResult.ok && r.calResult.eventId) {
-        SR(nextR.map(x => x.id === newId ? { ...x, calendarEventId: r.calResult.eventId } : x))
-      }
-    }).catch(() => {})
+    // FIXME: creación de eventos en Google Calendar deshabilitada por
+    // solicitud del usuario. Si vuelve a activarse, descomentar el bloque.
+    // saveData({ calendarEvent: newReserva }).then(r => {
+    //   if (r && r.calResult && r.calResult.ok && r.calResult.eventId) {
+    //     SR(nextR.map(x => x.id === newId ? { ...x, calendarEventId: r.calResult.eventId } : x))
+    //   }
+    // }).catch(() => {})
 
     // WhatsApp al cliente (con horario 9–5 y punto de encuentro)
     const enrichedPreview = { ...newReserva, totalPagado: toN(abono), totalRestante: restVal }
@@ -1356,7 +1399,9 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
     const sinEsta = (Array.isArray(reservasRef.current) ? reservasRef.current : []).filter(x => x.id !== r.id)
     const next = [...sinEsta, updated]
     await SR(next)
-    if (r.calendarEventId) saveData({ action: 'updateCalendarEvent', eventId: r.calendarEventId, calendarEvent: updated }).catch(() => {})
+    // FIXME: actualización de eventos en Google Calendar deshabilitada por
+    // solicitud del usuario. Si vuelve a activarse, descomentar el bloque.
+    // if (r.calendarEventId) saveData({ action: 'updateCalendarEvent', eventId: r.calendarEventId, calendarEvent: updated }).catch(() => {})
     infoModal('Cambios guardados.')
   }
 
