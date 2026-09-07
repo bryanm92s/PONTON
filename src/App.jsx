@@ -2316,6 +2316,12 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack }) {
         try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(nextOcultas)) } catch {}
         setOcultas(nextOcultas)
       }
+      // Si era una categoría personalizada, actualizar customCats y su localStorage.
+      if (customCats.includes(editando)) {
+        const nextCustom = customCats.map(c => c === editando ? nuevo : c)
+        try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(nextCustom)) } catch {}
+        setCustomCats(nextCustom)
+      }
       infoModal('Categoría renombrada: "' + editando + '" → "' + nuevo + '".')
     } else {
       infoModal('Categoría actualizada.')
