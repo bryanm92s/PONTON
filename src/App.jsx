@@ -918,8 +918,8 @@ function CalendarView({ enriched, setTab }) {
     hoy:        enriched.filter(r => r.fecha === todayD && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (a.hora || '').localeCompare(b.hora || '')),
     futuras:    enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
       .slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
-    pasadas:    enriched.filter(r => r.fecha < todayD && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
-    canceladas: enriched.filter(r => r.estadoOp === 'CANCELADA').slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+    pasadas:    enriched.filter(r => r.fecha < todayD && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
+    canceladas: enriched.filter(r => r.estadoOp === 'CANCELADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
   }
 
   return (
@@ -1887,9 +1887,9 @@ function ReservasTab({ enriched, setTab }) {
         'Hoy':         grupos.hoy,
         'En curso':    grupos.enCurso,
         'Próximas':    grupos.futuras.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
-        'Pasadas':     grupos.pasadas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
-        'Finalizadas': grupos.finalizadas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
-        'Canceladas':  grupos.canceladas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+        'Pasadas':     grupos.pasadas.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
+        'Finalizadas': grupos.finalizadas.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
+        'Canceladas':  grupos.canceladas.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
       }).map(([title, list]) => list.length === 0 ? null : (
         <details key={title} open style={{ marginBottom: 8 }}>
           <summary style={{ fontWeight: 700, padding: '8px 4px', cursor: 'pointer', color: 'var(--t2)' }}>{title} ({list.length})</summary>
