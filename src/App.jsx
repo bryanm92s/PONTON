@@ -986,7 +986,7 @@ function CalendarView({ enriched, setTab }) {
     hoy:        enriched.filter(r => r.fecha === todayD && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (a.hora || '').localeCompare(b.hora || '')),
     proximas:   enriched.filter(r => r.fecha > todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA')
       .slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
-    pasadas:    enriched.filter(r => r.fecha < todayD && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
+    pasadas:    enriched.filter(r => r.fecha < todayD && r.estadoOp !== 'CANCELADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
     finalizadas: enriched.filter(r => r.estadoOp === 'FINALIZADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
     canceladas: enriched.filter(r => r.estadoOp === 'CANCELADA').slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
   }
@@ -1922,7 +1922,7 @@ function ReservasTab({ enriched, setTab }) {
     hoy:        enriched.filter(r => r.fecha === today && r.estadoOp !== 'CANCELADA'),
     enCurso:    enriched.filter(r => r.estadoOp === 'EN_CURSO' && r.fecha !== today),
     futuras:    enriched.filter(r => r.fecha > today && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && r.estadoOp !== 'EN_CURSO'),
-    pasadas:    enriched.filter(r => r.fecha < today && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA'),
+    pasadas:    enriched.filter(r => r.fecha < today && r.estadoOp !== 'CANCELADA'),
     finalizadas: enriched.filter(r => r.estadoOp === 'FINALIZADA'),
     canceladas: enriched.filter(r => r.estadoOp === 'CANCELADA'),
   }
@@ -2016,11 +2016,10 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
   const [showNew, setShowNew] = useState(false)
   const [nNombre, setNNombre] = useState('')
   const [nCelular, setNCelular] = useState('')
+  const [nError, setNError] = useState('')
   const [editing, setEditing] = useState(null)
   const [eNombre, setENombre] = useState('')
   const [eCelular, setECelular] = useState('')
-  // Estado para reabrir modal tras error de validación
-  const [pendingNew, setPendingNew] = useState(null)
 
   const list = (Array.isArray(clients) ? clients : [])
     .filter(c => !q || phoneMatch(c.celular, q) || (c.nombre || '').toLowerCase().includes(q.toLowerCase()))
@@ -2076,30 +2075,16 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
   }
 
   const guardarNuevo = async () => {
+    setNError('')
     const errNN = validarNombre(nNombre)
-    if (errNN) { infoModal(errNN); return }
+    if (errNN) { setNError(errNN); return }
     if (nCelular.trim()) {
       const errNC = validarCelular(nCelular)
-      if (errNC) {
-        // Guardar datos y reabrir modal tras cerrar el error
-        setPendingNew({ nombre: nNombre, celular: nCelular })
-        setShowNew(false)
-        setTimeout(() => infoModal(errNC), 50)
-        return
-      }
+      if (errNC) { setNError(errNC); return }
     }
     const phone = nCelular.replace(/\D/g, '')
     if (phone && clients.some(c => (c.celular || '').replace(/\D/g, '') === phone)) {
-      // Cerramos primero el modal local de "Nuevo cliente" para que el
-      // mensaje de error (que es un modal global) quede visible por encima
-      // y no quede atrapado detrás.
-      setShowNew(false)
-      setNNombre(''); setNCelular('')
-      // Damos un tick para que el modal local se desmonte antes de
-      // mostrar el modal global.
-      setTimeout(() => {
-        infoModal('Ya existe un cliente con ese celular. No es posible crear otro cliente con el mismo número.')
-      }, 50)
+      setNError('Ya existe un cliente con ese celular. No es posible crear otro cliente con el mismo número.')
       return
     }
     const newC = { id: uid(), nombre: normalizeCategoria(nNombre), celular: phone, createdAt: localNowISO() }
@@ -2107,16 +2092,6 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
     setNNombre(''); setNCelular(''); setShowNew(false)
     infoModal('Cliente "' + normalizeCategoria(nNombre) + '" creado.')
   }
-
-  // Reabrir modal de nuevo cliente si quedó pendiente tras un error de validación
-  useEffect(() => {
-    if (pendingNew) {
-      setNNombre(pendingNew.nombre)
-      setNCelular(pendingNew.celular)
-      setShowNew(true)
-      setPendingNew(null)
-    }
-  }, [pendingNew])
 
   return (
     <div>
@@ -2147,12 +2122,13 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
       {showNew && (
         <Modal
           onOk={guardarNuevo}
-          onCancel={() => { setShowNew(false); setNNombre(''); setNCelular('') }}
+          onCancel={() => { setShowNew(false); setNNombre(''); setNCelular(''); setNError('') }}
           okLabel="Crear cliente"
           cancelLabel="Cancelar"
         >
           <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>👤</div>
           <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Nuevo cliente</div>
+          {nError && <div style={{ color: 'var(--red)', fontSize: 13, marginBottom: 10, textAlign: 'center' }}>{nError}</div>}
           <label className="lbl">Nombre</label>
           <input className="inp" autoFocus value={nNombre} onChange={e => setNNombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
           <label className="lbl">Celular (opcional)</label>
