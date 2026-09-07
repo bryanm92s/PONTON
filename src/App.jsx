@@ -1922,7 +1922,7 @@ function ReservasTab({ enriched, setTab }) {
     hoy:        enriched.filter(r => r.fecha === today && r.estadoOp !== 'CANCELADA'),
     enCurso:    enriched.filter(r => r.estadoOp === 'EN_CURSO' && r.fecha !== today),
     futuras:    enriched.filter(r => r.fecha > today && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA' && r.estadoOp !== 'EN_CURSO'),
-    pasadas:    enriched.filter(r => r.fecha < today && r.estadoOp !== 'CANCELADA'),
+    pasadas:    enriched.filter(r => r.fecha < today && r.estadoOp !== 'CANCELADA' && r.estadoOp !== 'FINALIZADA'),
     finalizadas: enriched.filter(r => r.estadoOp === 'FINALIZADA'),
     canceladas: enriched.filter(r => r.estadoOp === 'CANCELADA'),
   }
