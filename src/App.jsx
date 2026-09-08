@@ -1522,7 +1522,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
   }
 
   const reWA = () => openWA(r.clientPhone, buildReservaMessage(
-    { ...r, totalPagado: r.totalPagado, totalRestante: r.totalRestante },
+    { ...r, hora, totalPagado: r.totalPagado, totalRestante: r.totalRestante },
     pe,
     { nombre: (config && config.contactoNombre) || '', celular: (config && config.contactoCelular) || '' },
     (config && config.negocioNombre) || ''
