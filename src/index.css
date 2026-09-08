@@ -97,6 +97,9 @@ input, textarea, select {
 .inp {
   width: 100%;
   max-width: 100%;
+  min-width: 0; /* evita que el input imponga su ancho intrínseco (~170px)
+                   como mínimo dentro de grids/flex con auto-fit, lo que
+                   hacía que se saliera de su card en pantallas angostas */
   box-sizing: border-box;
   padding: 12px 14px;
   font-size: 16px;
@@ -135,6 +138,15 @@ input, textarea, select {
   .input-grid-3 {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* Red de seguridad extra: cualquier hija directa de un grid con
+   columnas tipo minmax (usado en los formularios de "Nueva reserva",
+   "Nuevo gasto" y "Nuevo ingreso") debe poder encogerse por debajo de
+   su ancho de contenido; si no, la columna se desborda del card/modal
+   en pantallas angostas. */
+[style*="grid-template-columns"] > * {
+  min-width: 0;
 }
 
 /* ============================================================
@@ -197,6 +209,8 @@ input, textarea, select {
 .card {
   width: 100%;
   max-width: 100%;
+  min-width: 0; /* permite que la card se encoja al ancho real de su
+                   columna cuando es hija de un grid/flex (ver .inp) */
   box-sizing: border-box;
   background: var(--card);
   border: 1px solid var(--border);
