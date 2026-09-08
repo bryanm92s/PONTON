@@ -44,11 +44,19 @@ html {
 
 html, body {
   height: 100%;
+  width: 100%;
+  max-width: 100%;
   background: var(--bg);
   font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--t);
   line-height: 1.5;
-  overflow-x: hidden;
+  overflow-x: hidden; /* CRÍTICO: en WebKit móvil (Safari / navegador
+    integrado de WhatsApp, Instagram, etc.) el elemento que realmente
+    controla el scroll de la página es <html>, no <body>. Ponerlo solo
+    en body NO evita el desbordamiento horizontal ahí — hay que ponerlo
+    también en html, si no cualquier elemento que se pase un poco del
+    ancho de la pantalla queda visible/desplazable hacia la derecha. */
+  overscroll-behavior-x: none;
 }
 
 #root {
