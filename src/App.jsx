@@ -1504,6 +1504,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
     const updated = {
       ...r,
       fecha,
+      hora,
       personas: toN(personas),
       valor: toN(valor),
       clientName: newNombre,
