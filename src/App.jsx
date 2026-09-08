@@ -1319,23 +1319,23 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
 
       <div className="card" style={{ marginBottom: 12 }}>
         <label className="lbl">Cliente</label>
-        <input
-          className="inp"
-          placeholder="Celular (sin espacios, ej. 3223992340)"
-          inputMode="tel"
-          value={celular}
-          onChange={e => {
-            const v = e.target.value
-            setCelular(v)
-            setNombreTocado(false)
-            // Si el nuevo celular NO existe en la base de clientes, limpiar
-            // el nombre para que el usuario lo ingrese manualmente.
-            const phone = v.replace(/\D/g, '')
-            const existe = phone && clients.find(c => (c.celular || '').replace(/\D/g, '') === phone)
-            if (!existe) setNombre('')
-          }}
-          style={{ marginBottom: 8 }}
-        />
+<input
+            className="inp"
+            placeholder="Celular (sin espacios, ej. 3223992340)"
+            inputMode="tel"
+            value={celular}
+            onChange={e => {
+              const v = e.target.value.replace(/\D/g, '')
+              setCelular(v)
+              setNombreTocado(false)
+              // Si el nuevo celular NO existe en la base de clientes, limpiar
+              // el nombre para que el usuario lo ingrese manualmente.
+              const phone = v
+              const existe = phone && clients.find(c => (c.celular || '').replace(/\D/g, '') === phone)
+              if (!existe) setNombre('')
+            }}
+            style={{ marginBottom: 8 }}
+          />
         <input
           className="inp"
           placeholder="Nombre del cliente"
