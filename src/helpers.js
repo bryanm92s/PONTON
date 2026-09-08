@@ -247,14 +247,15 @@ export const nextReservaId = (reservas, contadorPersistido) => {
 
 // Normaliza el nombre de una categoría de gasto: la primera letra y todo el
 // resto van en minúscula, sin importar cómo lo escriba el usuario.
-// 'Mantenimiento' → 'mantenimiento', 'COMBUSTIBLE' → 'combustible', 'Arriendo' → 'arriendo'
+// 'Mantenimiento' → 'Mantenimiento', 'COMBUSTIBLE' → 'Combustible', 'Arriendo' → 'Arriendo'
+// 'USUARIO PRUEBA' → 'Usuario Prueba'
 export const normalizeCategoria = raw => {
   let s = String(raw || '').trim().toLowerCase()
   if (!s) return ''
   // Compacta espacios múltiples y los reemplaza por uno solo.
   s = s.replace(/\s+/g, ' ')
-  // Primera letra en mayúscula, el resto en minúscula.
-  return s.charAt(0).toUpperCase() + s.slice(1)
+  // Title Case: cada palabra con primera letra mayúscula, resto minúscula.
+  return s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
 // Devuelve la lista de categorías únicas a partir de los gastos existentes,

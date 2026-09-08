@@ -186,15 +186,16 @@ describe('MAX_PAX', () => {
 })
 
 describe('normalizeCategoria', () => {
-  it('primera letra en mayúscula, resto en minúsculas', () => {
+  it('Title Case: cada palabra con primera letra mayúscula, resto minúsculas', () => {
     expect(normalizeCategoria('Mantenimiento')).toBe('Mantenimiento')
     expect(normalizeCategoria('COMBUSTIBLE')).toBe('Combustible')
     expect(normalizeCategoria('Arriendo')).toBe('Arriendo')
-    expect(normalizeCategoria('compra de repuestos')).toBe('Compra de repuestos')
+    expect(normalizeCategoria('compra de repuestos')).toBe('Compra De Repuestos')
+    expect(normalizeCategoria('USUARIO PRUEBA')).toBe('Usuario Prueba')
   })
   it('compacta espacios múltiples y recorta extremos', () => {
     expect(normalizeCategoria('  Almuerzo  ')).toBe('Almuerzo')
-    expect(normalizeCategoria('a   b   c')).toBe('A b c')
+    expect(normalizeCategoria('a   b   c')).toBe('A B C')
   })
   it('devuelve "" para entradas vacías o sin sentido', () => {
     expect(normalizeCategoria('')).toBe('')
