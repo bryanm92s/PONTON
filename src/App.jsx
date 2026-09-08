@@ -2855,7 +2855,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 10 }}>
             <div>
               <label className="lbl">Monto</label>
               <input type="number" min="0" max={ingResta || undefined} step="any" className="inp" placeholder="0" value={ingMonto} onChange={e => {
