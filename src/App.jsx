@@ -1333,7 +1333,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
         {dayBusy && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>⚠ Este día ya está reservado</div>}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Personas (máx {MAX_PAX})</label>
           <input type="number" min="1" max={MAX_PAX} className="inp" value={personas} onChange={e => setPersonas(e.target.value)} />
@@ -1376,7 +1376,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
               : null)}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Valor total</label>
           <input type="number" min="0" step="any" className="inp" placeholder="0" value={valor} onChange={e => {
@@ -1838,7 +1838,7 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
         }} autoFocus />
         <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(editando ? Math.max(0, r.valor - (r.totalPagado - toN(pagoExistente.monto))) : r.totalRestante)}</b> (saldo pendiente)</div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Fecha</label>
           <input type="date" className="inp" value={fecha} onChange={e => setFecha(e.target.value)} />
@@ -2354,7 +2354,7 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Monto</label>
           <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={onChangeMonto} autoFocus />
@@ -2947,7 +2947,7 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
           {PALETTES.map(p => (
             <button key={p.id} onClick={() => setThemePalette(p.id)}
               style={{ background: p.pl, border: themePalette === p.id ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: 10, padding: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
