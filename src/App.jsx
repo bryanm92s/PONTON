@@ -104,6 +104,39 @@ const applyTheme = (pid, mode) => {
       ctor: C
     }))
   }
+
+// ============================================================
+// FORZAR INCLUSIÓN DE COMPONENTES EN BUNDLE (evita tree-shaking)
+// Esta IIFE se ejecuta al final, cuando todos los componentes ya están definidos
+;(() => {
+  const TABS_COMPONENTS = [
+    Dashboard,
+    CalendarView,
+    ReservasTab,
+    ClientesTab,
+    FinanzasTab,
+    SettingsTab,
+    NewReserva,
+    EditReserva,
+    FinalizarReserva,
+    RegistrarPago,
+    NuevoGasto,
+    GestionCategorias,
+    ListaFiltrada,
+    ClientHistory,
+  ]
+  // Asignar a window para crear side-effect observable e impedir tree-shaking
+  if (typeof window !== 'undefined') {
+    TABS_COMPONENTS.forEach(C => {
+      window[C.name] = C
+    })
+    window.__TABS_COMPONENTS_DEBUG__ = TABS_COMPONENTS.map((C, i) => ({
+      name: C.name || `Component${i}`,
+      ctor: C
+    }))
+  }
+})()
+// ============================================================
 })()
 // ============================================================
 }
