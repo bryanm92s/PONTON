@@ -76,6 +76,36 @@ const applyTheme = (pid, mode) => {
     r.setProperty('--glass',     'rgba(255, 255, 255, 0.65)')
     r.setProperty('--glass-bd',  'rgba(255, 255, 255, 0.45)')
   }
+
+// ============================================================
+// FORZAR INCLUSIÓN DE COMPONENTES EN BUNDLE (evita tree-shaking)
+// Esta IIFE se ejecuta al final, cuando todos los componentes ya están definidos
+;(() => {
+  const TABS_COMPONENTS = [
+    Dashboard,
+    CalendarView,
+    ReservasTab,
+    ClientesTab,
+    FinanzasTab,
+    SettingsTab,
+    NewReserva,
+    EditReserva,
+    FinalizarReserva,
+    RegistrarPago,
+    NuevoGasto,
+    GestionCategorias,
+    ListaFiltrada,
+    ClientHistory,
+  ]
+  // Asignar a window para crear side-effect observable e impedir tree-shaking
+  if (typeof window !== 'undefined') {
+    window.__TABS_COMPONENTS_DEBUG__ = TABS_COMPONENTS.map((C, i) => ({
+      name: C.name || `Component${i}`,
+      ctor: C
+    }))
+  }
+})()
+// ============================================================
 }
 
 const BIZ_NAME     = import.meta.env.VITE_BIZ_NAME     || 'La Luz de Emi 2'
