@@ -287,6 +287,8 @@ export default function App() {
   const [lastSync,   setLS]  = useState(null)
   const [modal,      setModal] = useState(null)
   const [tick,       setTick] = useState(0) // para refrescar "EN_CURSO" en vivo
+  // Splash screen al cargar la app (2 segundos con logo)
+  const [showSplash, setShowSplash] = useState(true)
   // Pila de navegación para que "Volver" regrese al lugar real desde donde se entró.
   const [history,    setHistory] = useState([])
 
@@ -318,6 +320,12 @@ export default function App() {
       // Sin emoji configurado: usa el logo.ico del directorio público.
       link.href = (BIZ_LOGO || '/logo.ico') + '?v=2'
     }
+  }, [])
+
+  // Splash screen: ocultar después de 2 segundos
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2000)
+    return () => clearTimeout(timer)
   }, [])
 
   // Cleanup único: borrar todos los eventos que quedaron en Google Calendar
@@ -592,6 +600,25 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", minHeight: '100vh', background: 'var(--bg)', color: 'var(--t)' }}>
+      <GS />
+      {/* Splash screen al cargar la app */}
+      {showSplash && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--bg)', color: 'var(--t)',
+          animation: 'fadeOut 0.3s ease forwards'
+        }}>
+          <div style={{
+            textAlign: 'center', animation: 'pulse 1.5s ease-in-out infinite'
+          }}>
+            <img src="/logo.ico" alt={BIZ_NAME} style={{ width: 120, height: 120, objectFit: 'contain', filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.2))' }} />
+            <div style={{ marginTop: 16, fontSize: 14, color: 'var(--t2)', fontWeight: 500 }}>
+              Cargando...
+            </div>
+          </div>
+        </div>
+      )}
       <GS />
       {modal?.type === 'confirm' && <Modal msg={modal.msg} onOk={() => { modal.onOk(); setModal(null) }} onCancel={() => setModal(null)} />}
       {modal?.type === 'info'    && <Modal msg={modal.msg} onOk={() => setModal(null)} okLabel="Entendido" cancelLabel={null} />}
@@ -1398,6 +1425,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
   const [personas, setPersonas] = useState(r?.personas || 1)
   const [valor,    setValor]    = useState(String(r?.valor || 0))
   const [fecha,    setFecha]    = useState(r?.fecha || todayStr())
+  const [hora,     setHora]     = useState(r?.hora || HORA_SALIDA)
   const [nombre,   setNombre]   = useState(r?.clientName || '')
   const [celular,  setCelular]  = useState(r?.clientPhone || '')
 
@@ -1406,6 +1434,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
     setPersonas(r.personas || 1)
     setValor(String(r.valor || 0))
     setFecha(r.fecha || todayStr())
+    setHora(r.hora || HORA_SALIDA)
     setNombre(r.clientName || '')
     setCelular(r.clientPhone || '')
   }, [r && r.id])
@@ -1554,6 +1583,8 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
           <label className="lbl">Fecha</label>
           <input type="date" className="inp" value={fecha} min={todayStr()} onChange={e => setFecha(e.target.value)} style={{ marginBottom: 8 }} />
           {dayBusyOther && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 6 }}>⚠ Ese día ya está reservado por otra reserva</div>}
+          <label className="lbl">Hora de inicio</label>
+          <input type="time" className="inp" value={hora} onChange={e => setHora(e.target.value)} style={{ marginBottom: 8 }} />
           <label className="lbl">Nombre del cliente</label>
           <input className="inp" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre" style={{ marginBottom: 8 }} />
           <label className="lbl">Celular</label>
