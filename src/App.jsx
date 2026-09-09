@@ -17,11 +17,11 @@ import {
 const PALETTES = [
   { id:'oceano',   name:'Océano',   emoji:'🌊', primary:'#0F7AAE', pd:'#0A5980', pl:'#E0F1F9', bg:'#EFF6FB', border:'#D6E7F2', t:'#0A1A24', t2:'#5A6A80',
     grad:'linear-gradient(135deg,#0F7AAE 0%,#1AA0D8 100%)', gradSoft:'linear-gradient(135deg,#E0F1F9 0%,#C8E4F4 100%)' },
-  { id:'turquesa', name:'Turquesa', emoji:'🩵', primary:'#1A9A95', pd:'#0F7470', pl:'#E0F4F2', bg:'#FFFFFF', border:'#CFE7E5', t:'#0A1A1A', t2:'#4A7070',
+  { id:'turquesa', name:'Turquesa', emoji:'💎', primary:'#1A9A95', pd:'#0F7470', pl:'#E0F4F2', bg:'#FFFFFF', border:'#CFE7E5', t:'#0A1A1A', t2:'#4A7070',
     grad:'linear-gradient(135deg,#1A9A95 0%,#2BC4BE 100%)', gradSoft:'linear-gradient(135deg,#E0F4F2 0%,#B8E5E2 100%)' },
   { id:'arena',    name:'Arena',    emoji:'🏖️', primary:'#B58A4A', pd:'#85652F', pl:'#F7EDDF', bg:'#F7F1E5', border:'#E5D6B5', t:'#1E1A0C', t2:'#7A7040',
     grad:'linear-gradient(135deg,#B58A4A 0%,#D4A86A 100%)', gradSoft:'linear-gradient(135deg,#F7EDDF 0%,#EDD9B4 100%)' },
-  { id:'coral',    name:'Coral',    emoji:'🪸', primary:'#C45A4A', pd:'#94382B', pl:'#F9E2DD', bg:'#FFFFFF', border:'#E8C5BF', t:'#1E0C0A', t2:'#7A5040',
+  { id:'coral',    name:'Coral',    emoji:'🐚', primary:'#C45A4A', pd:'#94382B', pl:'#F9E2DD', bg:'#FFFFFF', border:'#E8C5BF', t:'#1E0C0A', t2:'#7A5040',
     grad:'linear-gradient(135deg,#C45A4A 0%,#E07A6A 100%)', gradSoft:'linear-gradient(135deg,#F9E2DD 0%,#F0C4BC 100%)' },
 ]
 const applyTheme = (pid, mode) => {
