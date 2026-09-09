@@ -1835,7 +1835,7 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
           const n = Number(v)
           if (isNaN(n)) return
           setMonto(n < 0 ? '0' : String(n))
-        }} autoFocus />
+        }} />
         <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(editando ? Math.max(0, r.valor - (r.totalPagado - toN(pagoExistente.monto))) : r.totalRestante)}</b> (saldo pendiente)</div>
       </div>
       <div className="grid-2-safe" style={{ marginBottom: 12 }}>
@@ -2225,7 +2225,7 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
           <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Nuevo cliente</div>
           {nError && <div style={{ color: 'var(--red)', fontSize: 13, marginBottom: 10, textAlign: 'center' }}>{nError}</div>}
           <label className="lbl">Nombre</label>
-          <input className="inp" autoFocus value={nNombre} onChange={e => setNNombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
+          <input className="inp" value={nNombre} onChange={e => setNNombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
           <label className="lbl">Celular (opcional)</label>
           <input className="inp" value={nCelular} onChange={e => setNCelular(e.target.value.replace(/\D/g, ''))} inputMode="tel" placeholder="3001234567" />
         </Modal>
@@ -2241,7 +2241,7 @@ function ClientesTab({ clients, enriched, SC, SR, reservas, setTab, confirm, inf
           <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>✏️</div>
           <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Editar cliente</div>
           <label className="lbl">Nombre</label>
-          <input className="inp" autoFocus value={eNombre} onChange={e => setENombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
+          <input className="inp" value={eNombre} onChange={e => setENombre(e.target.value)} placeholder="Nombre completo" style={{ marginBottom: 10 }} />
           <label className="lbl">Celular (opcional)</label>
           <input className="inp" value={eCelular} onChange={e => setECelular(e.target.value.replace(/\D/g, ''))} inputMode="tel" placeholder="3001234567" />
         </Modal>
@@ -2357,7 +2357,7 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
       <div className="grid-2-safe" style={{ marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Monto</label>
-          <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={onChangeMonto} autoFocus />
+          <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={onChangeMonto} />
         </div>
         <div className="card">
           <label className="lbl">Fecha</label>
@@ -2501,7 +2501,7 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack, confirm })
           <div key={cat} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderTop: i > 0 ? '1px solid var(--border)' : 'none', gap: 8 }}>
             {editando === cat ? (
               <>
-                <input className="inp" autoFocus value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)} style={{ flex: 1, padding: '6px 10px' }} />
+                <input className="inp" value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)} style={{ flex: 1, padding: '6px 10px' }} />
                 <button className="btn-pri" style={{ padding: '6px 10px' }} onClick={guardarEdicion}>Guardar</button>
                 <button className="btn-sec" style={{ padding: '6px 10px' }} onClick={() => { setEditando(null); setNuevoNombre('') }}>Cancelar</button>
               </>
@@ -2864,7 +2864,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
                 const n = Number(v)
                 if (isNaN(n)) return
                 setIngMonto(n < 0 ? '0' : String(n))
-              }} autoFocus disabled={ingPagada} />
+              }} disabled={ingPagada} />
               {!ingPagada && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(ingResta)}</b></div>}
             </div>
             <div>
@@ -2988,7 +2988,6 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
           </p>
           <input
             className="inp"
-            autoFocus
             placeholder="Escribe CONFIRMAR"
             value={confirmText}
             onChange={e => setConfirmText(e.target.value)}
