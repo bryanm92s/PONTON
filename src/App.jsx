@@ -2887,6 +2887,7 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
   const [rawSaldo, setRawSaldo] = useState(config.saldoInicial || '0')
   const [showReset, setShowReset] = useState(false)
   const [confirmText, setConfirmText] = useState('')
+  const [resetting, setResetting] = useState(false)
 
   // Mantener el campo sincronizado con config.saldoInicial: así, al
   // restablecer la app (que reinicia config al valor por defecto), el
@@ -2921,9 +2922,12 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
   const closeReset = () => { setShowReset(false); setConfirmText('') }
   const doReset = async () => {
     if (confirmText.trim().toUpperCase() !== 'CONFIRMAR') return
-    await resetAll()
     setShowReset(false)
     setConfirmText('')
+    setResetting(true)
+    await resetAll()
+    setResetting(false)
+    infoModal('Sistema restablecido con éxito')
   }
 
   return (
@@ -3001,6 +3005,21 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
                   : <span>Lo escrito no coincide. Escribe exactamente CONFIRMAR (en mayúsculas).</span>)}
           </div>
         </Modal>
+      )}
+
+      {resetting && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--bg)', color: 'var(--t)',
+        }}>
+          <div style={{ textAlign: 'center', animation: 'pulse 1.5s ease-in-out infinite' }}>
+            <img src="/logo.ico" alt={BIZ_NAME} style={{ width: 120, height: 120, objectFit: 'contain', filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.2))' }} />
+            <div style={{ marginTop: 16, fontSize: 14, color: 'var(--t2)', fontWeight: 500 }}>
+              Borrando información...
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
