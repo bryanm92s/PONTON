@@ -167,6 +167,38 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const capFirst = s => { const t = String(s || '').trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1) : t }
 const capWords = s => String(s || '').trim().replace(/\b\w/g, c => c.toUpperCase())
 
+// Input de dinero con máscara de miles (es-CO) mientras se escribe.
+// El valor que se guarda en el estado del padre sigue siendo un string
+// numérico plano (sin separadores), igual que antes — solo cambia lo
+// que se ve en pantalla, para no romper la lógica de validación
+// existente (toN, comparaciones con máximos, etc.).
+function MoneyInput({ value, onChange, placeholder = '0', disabled, style, id, className = 'inp', inputRef, onBlur }) {
+  const display = (value === '' || value === undefined || value === null)
+    ? ''
+    : Number(value).toLocaleString('es-CO')
+  return (
+    <input
+      id={id}
+      ref={inputRef}
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      className={className}
+      placeholder={placeholder}
+      value={display}
+      disabled={disabled}
+      style={style}
+      onBlur={onBlur}
+      onChange={e => {
+        const digits = e.target.value.replace(/\D/g, '')
+        if (digits === '') { onChange(''); return }
+        const sinCerosIzq = String(Number(digits))
+        onChange(sinCerosIzq)
+      }}
+    />
+  )
+}
+
 const openWA = (phone, text) => {
   const p = ('57' + String(phone || '').replace(/\D/g, '')).replace(/^5757/, '57')
   const url = 'https://api.whatsapp.com/send/?phone=' + p + '&text=' + encodeURIComponent(text) + '&type=phone_number&app_absent=0'
@@ -1379,23 +1411,11 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Valor total</label>
-          <input type="number" min="0" step="any" className="inp" placeholder="0" value={valor} onChange={e => {
-            const v = e.target.value
-            if (v === '' || v === '-') { setValor(''); return }
-            const n = Number(v)
-            if (isNaN(n)) return
-            setValor(n < 0 ? '0' : String(n))
-          }} />
+          <MoneyInput value={valor} onChange={setValor} placeholder="0" />
         </div>
         <div className="card">
           <label className="lbl">Abono inicial</label>
-          <input type="number" min="0" max={valor || undefined} step="any" className="inp" placeholder="0" value={abono} onChange={e => {
-            const v = e.target.value
-            if (v === '' || v === '-') { setAbono(''); return }
-            const n = Number(v)
-            if (isNaN(n)) return
-            setAbono(n < 0 ? '0' : String(n))
-          }} />
+          <MoneyInput value={abono} onChange={setAbono} placeholder="0" />
           {valor && toN(abono) > toN(valor) && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>⚠ El abono no puede superar el valor de la reserva ({fmtPeso(toN(valor))})</div>}
         </div>
       </div>
@@ -1593,7 +1613,7 @@ function EditReserva({ enriched, reservas, payments, expenses, config, clients, 
           <label className="lbl">Personas (máx {MAX_PAX})</label>
           <input type="number" min="1" max={MAX_PAX} className="inp" value={personas} onChange={e => setPersonas(e.target.value)} style={{ marginBottom: 8 }} />
           <label className="lbl">Valor total</label>
-          <input type="number" className="inp" value={valor} onChange={e => setValor(e.target.value)} />
+          <MoneyInput value={valor} onChange={setValor} placeholder="0" />
         </div>
       )}
 
@@ -1829,13 +1849,7 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
 
       <div className="card" style={{ marginBottom: 12 }}>
         <label className="lbl">Monto</label>
-        <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={e => {
-          const v = e.target.value
-          if (v === '' || v === '-') { setMonto(''); return }
-          const n = Number(v)
-          if (isNaN(n)) return
-          setMonto(n < 0 ? '0' : String(n))
-        }} />
+        <MoneyInput value={monto} onChange={setMonto} placeholder="0" />
         <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(editando ? Math.max(0, r.valor - (r.totalPagado - toN(pagoExistente.monto))) : r.totalRestante)}</b> (saldo pendiente)</div>
       </div>
       <div className="grid-2-safe" style={{ marginBottom: 12 }}>
@@ -2304,14 +2318,6 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
   })()
   const cats = Array.from(new Set([...categoriasDeGastos(expenses), ...customCats]))
 
-  const onChangeMonto = e => {
-    const v = e.target.value
-    if (v === '' || v === '-') { setMonto(''); return }
-    const n = Number(v)
-    if (isNaN(n)) return
-    setMonto(n < 0 ? '0' : String(n))
-  }
-
   const submit = async () => {
     const m = toN(monto)
     if (m <= 0) { infoModal('Indica un monto mayor a 0.'); return }
@@ -2357,7 +2363,7 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
       <div className="grid-2-safe" style={{ marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Monto</label>
-          <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={onChangeMonto} />
+          <MoneyInput value={monto} onChange={setMonto} placeholder="0" />
         </div>
         <div className="card">
           <label className="lbl">Fecha</label>
@@ -2898,6 +2904,13 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
   const [confirmText, setConfirmText] = useState('')
   const inputRef = useRef(null)
   const [focused, setFocused] = useState(false)
+
+  // Mantener el campo sincronizado con config.saldoInicial: así, al
+  // restablecer la app (que reinicia config al valor por defecto), el
+  // input se pone en 0 de inmediato, sin necesidad de refrescar la página.
+  useEffect(() => {
+    setRawSaldo(String(config.saldoInicial || '0'))
+  }, [config.saldoInicial])
 
   // Solo se permite editar el saldo inicial. El nombre del negocio, el
   // punto de encuentro y los datos de contacto están quemados al instalar
