@@ -129,6 +129,35 @@ input, textarea, select {
   opacity: 0.6;
 }
 
+/* Fix específico para input[type="date"] / type="time"] en WebKit móvil
+   (Safari y Chrome en iOS, que también corre sobre WebKit). Estos
+   controles nativos traen su propio motor de renderizado interno
+   (los segmentos día/mes/año, el ícono de calendario/reloj) con un
+   ancho propio que en ciertas versiones IGNORA el width:100% normal
+   del input. -webkit-appearance:none le pide al navegador que deje de
+   forzar ese ancho propio; overflow:hidden es el respaldo final para
+   que, pase lo que pase, nunca se dibuje nada fuera de la caja del
+   input (y por lo tanto nunca fuera de la tarjeta). */
+input[type="date"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* En iOS, el propio "valor" pintado dentro del campo (el texto de la
+   fecha/hora) es un pseudo-elemento con su propio layout; si no se le
+   dice que respete el ancho del padre, puede seguir empujando hacia
+   afuera aunque el input ya esté recortado. */
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  width: 100%;
+  text-align: left;
+}
+
 /* Input in grids */
 .input-grid {
   display: grid;
