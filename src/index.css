@@ -148,6 +148,24 @@ input, textarea, select {
   }
 }
 
+/* Fila de 2 campos (usada para Personas+Hora, Monto+Fecha, rango de
+   fechas, etc.) que en celulares se apila en una sola columna.
+   Los inputs nativos type="date" / type="time" en WebKit móvil (Safari,
+   navegador integrado de WhatsApp/Instagram) tienen un ancho mínimo
+   interno que NO respeta width:100% ni min-width:0 — si se les da menos
+   de ~170-180px se salen de su contenedor sin importar el CSS. Por eso
+   NO usamos auto-fit con minmax(140px,...): eso permitía 2 columnas
+   angostas que el navegador no podía honrar. En vez de eso, forzamos
+   1 sola columna hasta que haya espacio de sobra para 2. */
+.grid-2-safe {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+@media (min-width: 460px) {
+  .grid-2-safe { grid-template-columns: 1fr 1fr; }
+}
+
 /* Red de seguridad extra: cualquier hija directa de un grid con
    columnas tipo minmax (usado en los formularios de "Nueva reserva",
    "Nuevo gasto" y "Nuevo ingreso") debe poder encogerse por debajo de

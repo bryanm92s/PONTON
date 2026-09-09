@@ -1333,7 +1333,7 @@ function NewReserva({ clients, reservas, payments, config, SC, SCfg, SR, SP, set
         {dayBusy && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>⚠ Este día ya está reservado</div>}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
+      <div className="grid-2-safe" style={{ marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Personas (máx {MAX_PAX})</label>
           <input type="number" min="1" max={MAX_PAX} className="inp" value={personas} onChange={e => setPersonas(e.target.value)} />
@@ -1838,7 +1838,7 @@ function RegistrarPago({ enriched, payments, SP, setTab, infoModal, setModal, ta
         }} autoFocus />
         <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(editando ? Math.max(0, r.valor - (r.totalPagado - toN(pagoExistente.monto))) : r.totalRestante)}</b> (saldo pendiente)</div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
+      <div className="grid-2-safe" style={{ marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Fecha</label>
           <input type="date" className="inp" value={fecha} onChange={e => setFecha(e.target.value)} />
@@ -2354,7 +2354,7 @@ function NuevoGasto({ expenses, SE, setTab, infoModal, goBack }) {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
+      <div className="grid-2-safe" style={{ marginBottom: 12 }}>
         <div className="card">
           <label className="lbl">Monto</label>
           <input type="number" min="0" step="any" className="inp" placeholder="0" value={monto} onChange={onChangeMonto} autoFocus />
@@ -2660,9 +2660,9 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           return (
           <div>
             <label className="lbl">Por rango</label>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-              <input type="date" className="inp" value={rangoDesde} onChange={e => setRangoDesde(e.target.value)} style={{ flex: 1 }} />
-              <input type="date" className="inp" value={rangoHasta} onChange={e => setRangoHasta(e.target.value)} style={{ flex: 1 }} />
+            <div className="grid-2-safe" style={{ marginBottom: 6 }}>
+              <input type="date" className="inp" value={rangoDesde} onChange={e => setRangoDesde(e.target.value)} />
+              <input type="date" className="inp" value={rangoHasta} onChange={e => setRangoHasta(e.target.value)} />
             </div>
             {rangoInvalido && <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 10, padding: 8, fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>⚠ La fecha inicial no puede ser mayor que la fecha final.</div>}
             {!rangoInvalido && (
@@ -2855,7 +2855,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 10 }}>
+          <div className="grid-2-safe" style={{ marginBottom: 10 }}>
             <div>
               <label className="lbl">Monto</label>
               <input type="number" min="0" max={ingResta || undefined} step="any" className="inp" placeholder="0" value={ingMonto} onChange={e => {
