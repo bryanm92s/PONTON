@@ -2893,9 +2893,11 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
    AJUSTES
 ══════════════════════════════════════════════════════════════ */
 function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setThemePalette, infoModal }) {
-  const [saldo, setSaldo] = useState(config.saldoInicial || '0')
+  const [rawSaldo, setRawSaldo] = useState(config.saldoInicial || '0')
   const [showReset, setShowReset] = useState(false)
   const [confirmText, setConfirmText] = useState('')
+  const inputRef = useRef(null)
+  const [focused, setFocused] = useState(false)
 
   // Solo se permite editar el saldo inicial. El nombre del negocio, el
   // punto de encuentro y los datos de contacto están quemados al instalar
@@ -2903,9 +2905,17 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
   const BIZ_NAME_HARD = 'La Luz de Emi 2'
   const PUNTO_ENCUENTRO_HARD = 'Muelle de la policía, Cra. 1, San Andrés'
 
+  const formatNumberWithoutCurrency = (value) => {
+    const n = toN(value)
+    return n.toLocaleString('es-CO')
+  }
+
   const save = async () => {
-    const num = toN(saldo)
-    if (num < 0) { infoModal('El saldo inicial no puede ser negativo. Ingresa 0 o un valor positivo.'); return }
+    const num = toN(rawSaldo)
+    if (num < 0) { 
+      infoModal('El saldo inicial no puede ser negativo. Ingresa 0 o un valor positivo.') 
+      return 
+    }
     await SCfg({
       saldoInicial: num,
       puntoEncuentro: PUNTO_ENCUENTRO_HARD,
@@ -2913,6 +2923,7 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
       contactoCelular: '',
       negocioNombre: BIZ_NAME_HARD,
     })
+    infoModal('Saldo inicial guardado correctamente')
   }
 
   const openReset = () => { setConfirmText(''); setShowReset(true) }
@@ -2923,6 +2934,8 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
     setShowReset(false)
     setConfirmText('')
   }
+
+  const displayedValue = focused ? rawSaldo : (rawSaldo !== '' ? formatNumberWithoutCurrency(rawSaldo) : '')
 
   return (
     <div>
@@ -2937,9 +2950,13 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
         </p>
         <label className="lbl">Saldo inicial (dinero ya ahorrado)</label>
         <input
-          type="number" min="0" step="any" className="inp"
-          value={saldo}
-          onChange={e => { const v = e.target.value; if (v !== '' && Number(v) < 0) return; setSaldo(v) }}
+          ref={inputRef}
+          type="text"
+          className="inp"
+          value={displayedValue}
+          onChange={e => { const v = e.target.value.replace(/\D/g, ''); setRawSaldo(v); }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           placeholder="0"
           style={{ marginBottom: 8 }}
         />
