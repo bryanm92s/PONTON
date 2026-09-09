@@ -1903,14 +1903,6 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
 
   const totalGastos = toN(tripulacion) + toN(admin) + toN(combust) + toN(otros)
   const resultado   = r.valor - totalGastos
-  // Bloquea escribir valores negativos desde el input mismo.
-  const onNum = setter => e => {
-    const v = e.target.value
-    if (v === '' || v === '-') { setter(''); return }
-    const n = Number(v)
-    if (isNaN(n)) return
-    setter(n < 0 ? '0' : String(n))
-  }
   const negativos = ['Tripulación', 'Administración', 'Combustible', 'Otros']
     .filter((cat, i) => {
       const v = [tripulacion, admin, combust, otros][i]
@@ -1995,7 +1987,7 @@ function FinalizarReserva({ enriched, reservations, expenses, SR, SE, setTab, in
       ].map(([label, val, setter]) => (
         <div key={label} className="card" style={{ marginBottom: 8 }}>
           <label className="lbl">{label}</label>
-          <input type="number" min="0" step="any" className="inp" placeholder="0" value={val} onChange={onNum(setter)} />
+          <MoneyInput value={val} onChange={setter} placeholder="0" />
         </div>
       ))}
 
@@ -2539,6 +2531,7 @@ function GestionCategorias({ expenses, SE, setTab, infoModal, goBack, confirm })
 function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto, updateGasto, confirm, SP, SE, infoModal }) {
   const [showNewIng, setShowNewIng] = useState(false)
   const [editandoGasto, setEditandoGasto] = useState(null)
+  const [editMonto, setEditMonto] = useState('')
   const [ingReservaId, setIngReservaId] = useState('')
   const [ingMonto, setIngMonto] = useState('')
   const [ingFecha, setIngFecha] = useState(todayStr())
@@ -2751,7 +2744,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
                       {g.nota ? <div style={{ fontSize: 11, color: 'var(--t2)' }}>{g.nota}</div> : null}
                     </div>
                     <b style={{ color: 'var(--red)' }}>−{fmtPeso(g.monto)}</b>
-                    <button onClick={(e) => { e.stopPropagation(); setEditandoGasto(g); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Editar gasto">✏️</button>
+                    <button onClick={(e) => { e.stopPropagation(); setEditandoGasto(g); setEditMonto(String(g.monto || 0)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Editar gasto">✏️</button>
                     {!esDelViaje && (
                       <button onClick={(e) => { e.stopPropagation(); confirm('¿Eliminar este gasto de ' + fmtPeso(g.monto) + '?', () => deleteGasto(g.id)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }} title="Eliminar gasto">🗑</button>
                     )}
@@ -2781,7 +2774,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
             const data = {
               fecha: document.getElementById('edit-gasto-fecha').value,
               categoria: document.getElementById('edit-gasto-cat').value.trim(),
-              monto: toN(document.getElementById('edit-gasto-monto').value),
+              monto: toN(editMonto),
               nota: document.getElementById('edit-gasto-nota').value,
             }
             if (data.monto <= 0) { infoModal('Indica un monto mayor a 0.'); return }
@@ -2804,7 +2797,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           <label className="lbl">Categoría</label>
           <input id="edit-gasto-cat" type="text" className="inp" defaultValue={editandoGasto.categoria || ''} style={{ marginBottom: 10 }} />
           <label className="lbl">Monto</label>
-          <input id="edit-gasto-monto" type="number" min="0" step="any" className="inp" defaultValue={String(editandoGasto.monto || 0)} style={{ marginBottom: 10 }} />
+          <MoneyInput value={editMonto} onChange={setEditMonto} placeholder="0" style={{ marginBottom: 10 }} />
           <label className="lbl">Nota (opcional)</label>
           <input id="edit-gasto-nota" type="text" className="inp" defaultValue={editandoGasto.nota || ''} />
         </Modal>
@@ -2896,8 +2889,6 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
   const [rawSaldo, setRawSaldo] = useState(config.saldoInicial || '0')
   const [showReset, setShowReset] = useState(false)
   const [confirmText, setConfirmText] = useState('')
-  const inputRef = useRef(null)
-  const [focused, setFocused] = useState(false)
 
   // Mantener el campo sincronizado con config.saldoInicial: así, al
   // restablecer la app (que reinicia config al valor por defecto), el
@@ -2911,11 +2902,6 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
   // la app, no se exponen al usuario en este formulario.
   const BIZ_NAME_HARD = 'La Luz de Emi 2'
   const PUNTO_ENCUENTRO_HARD = 'Muelle de la policía, Cra. 1, San Andrés'
-
-  const formatNumberWithoutCurrency = (value) => {
-    const n = toN(value)
-    return n.toLocaleString('es-CO')
-  }
 
   const save = async () => {
     const num = toN(rawSaldo)
@@ -2942,8 +2928,6 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
     setConfirmText('')
   }
 
-  const displayedValue = focused ? rawSaldo : (rawSaldo !== '' ? formatNumberWithoutCurrency(rawSaldo) : '')
-
   return (
     <div>
       <h1 style={{ fontSize: 24, margin: '0 0 16px', fontFamily: 'Georgia,serif', letterSpacing: '.01em' }}>Ajustes</h1>
@@ -2956,14 +2940,9 @@ function SettingsTab({ config, SCfg, resetAll, themeMode, themePalette, setTheme
           <b style={{ color: 'var(--t)' }}>La Luz de Emi 2</b> · Muelle de la policía, Cra. 1, San Andrés.
         </p>
         <label className="lbl">Saldo inicial (dinero ya ahorrado)</label>
-        <input
-          ref={inputRef}
-          type="text"
-          className="inp"
-          value={displayedValue}
-          onChange={e => { const v = e.target.value.replace(/\D/g, ''); setRawSaldo(v); }}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+        <MoneyInput
+          value={rawSaldo}
+          onChange={setRawSaldo}
           placeholder="0"
           style={{ marginBottom: 8 }}
         />
