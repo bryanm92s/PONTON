@@ -2864,13 +2864,7 @@ function FinanzasTab({ config, payments, expenses, enriched, setTab, deleteGasto
           <div className="grid-2-safe" style={{ marginBottom: 10 }}>
             <div>
               <label className="lbl">Monto</label>
-              <input type="number" min="0" max={ingResta || undefined} step="any" className="inp" placeholder="0" value={ingMonto} onChange={e => {
-                const v = e.target.value
-                if (v === '' || v === '-') { setIngMonto(''); return }
-                const n = Number(v)
-                if (isNaN(n)) return
-                setIngMonto(n < 0 ? '0' : String(n))
-              }} disabled={ingPagada} />
+              <MoneyInput value={ingMonto} onChange={setIngMonto} placeholder="0" disabled={ingPagada} />
               {!ingPagada && <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 6 }}>Máximo permitido: <b>{fmtPeso(ingResta)}</b></div>}
             </div>
             <div>
