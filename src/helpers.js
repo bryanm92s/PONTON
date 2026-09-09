@@ -14,8 +14,9 @@ export const DEFAULT_CONFIG = {
   saldoInicial: '0',
   puntoEncuentro: 'Muelle de la policía, Cra. 1, San Andrés.',
   negocioNombre: 'La Luz de Emi 2',
-  contactoNombre: 'Capitán',
-  contactoCelular: '300000000',
+  contactoNombre: '',
+  contactoCelular: '',
+  contadorReservas: '0',
 };
 
 // Horas de inicio del recorrido (09:00 → 17:00), en pasos de 30 min.
